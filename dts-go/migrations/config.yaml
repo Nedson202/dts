@@ -1,0 +1,2 @@
+keyspace: task_scheduler
+migrations_path: ./migrations

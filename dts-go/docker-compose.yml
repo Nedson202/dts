@@ -1,0 +1,147 @@
+services:
+  cassandra:
+    image: cassandra:latest
+    ports:
+      - "9042:9042"
+    healthcheck:
+      test: ["CMD-SHELL", "[ $$(nodetool statusgossip) = running ]"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - dts-network
+
+  cassandra-init:
+    image: cassandra:latest
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    command: >
+      /bin/bash -c "
+        echo 'Waiting for Cassandra to be ready...';
+        while ! cqlsh cassandra -e 'describe keyspaces' > /dev/null 2>&1; do
+          sleep 5;
+        done;
+        echo 'Creating keyspace and tables...';
+        cqlsh cassandra -e \"
+          CREATE KEYSPACE IF NOT EXISTS task_scheduler 
+          WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
+          USE task_scheduler;
+          CREATE TABLE IF NOT EXISTS jobs (
+            id UUID PRIMARY KEY,
+            name TEXT,
+            description TEXT,
+            cron_expression TEXT,
+            status TEXT,
+            created_at TIMESTAMP,
+            updated_at TIMESTAMP,
+            metadata MAP<TEXT, TEXT>
+          );
+        \"
+        echo 'Cassandra initialization completed.'
+      "
+    networks:
+      - dts-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - dts-network
+    healthcheck:
+      test: ["CMD-SHELL", "echo srvr | nc localhost 2181 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - dts-network
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  job-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.job-service
+    ports:
+      - "50054:50054"
+      - "8080:8080"
+    environment:
+      - KAFKA_BROKERS=kafka:29092
+      - CASSANDRA_HOSTS=cassandra
+      - CASSANDRA_KEYSPACE=task_scheduler
+      - JOB_SERVICE_GRPC_PORT=50054
+      - JOB_SERVICE_HTTP_PORT=8080
+    depends_on:
+      cassandra-init:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+    networks:
+      - dts-network
+
+  scheduler-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.scheduler-service
+    ports:
+      - "50052:50052"
+      - "8081:8081"
+    environment:
+      - KAFKA_BROKERS=kafka:29092
+      - CASSANDRA_HOSTS=cassandra
+      - CASSANDRA_KEYSPACE=task_scheduler
+      - SCHEDULER_SERVICE_GRPC_PORT=50052
+      - SCHEDULER_SERVICE_HTTP_PORT=8081
+    depends_on:
+      cassandra-init:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+    networks:
+      - dts-network
+
+  execution-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.execution-service
+    ports:
+      - "50053:50053"
+    environment:
+      - KAFKA_BROKERS=kafka:29092
+      - CASSANDRA_HOSTS=cassandra
+      - CASSANDRA_KEYSPACE=task_scheduler
+      - EXECUTION_SERVICE_PORT=50053
+    depends_on:
+      cassandra-init:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+    networks:
+      - dts-network
+
+networks:
+  dts-network:
+    driver: bridge

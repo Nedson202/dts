@@ -1,0 +1,249 @@
+services:
+  cassandra:
+    image: cassandra:latest
+    ports:
+      - "9042:9042"
+    environment:
+      - CASSANDRA_CLUSTER_NAME=${CASSANDRA_CLUSTER_NAME}
+      - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
+      - MAX_HEAP_SIZE=512M
+      - HEAP_NEWSIZE=100M
+    healthcheck:
+      test: ["CMD-SHELL", "nodetool status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - ${CASSANDRA_DATA_PATH}:/var/lib/cassandra
+      - ./cassandra-cleanup.sh:/cassandra-cleanup.sh
+    command: ["cassandra", "-f"]
+    user: "cassandra"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1'
+    networks:
+      - cassandra-network
+
+  cassandra-init:
+    image: cassandra:latest
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    user: "cassandra"
+    command: >
+      /bin/bash -c "
+        echo 'Waiting for Cassandra to be ready...';
+        while ! cqlsh cassandra -e 'describe keyspaces' > /dev/null 2>&1; do
+          sleep 5;
+        done;
+        echo 'Creating keyspace and tables...';
+        cqlsh cassandra -e \"
+          CREATE KEYSPACE IF NOT EXISTS ${CASSANDRA_KEYSPACE}
+          WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
+          USE ${CASSANDRA_KEYSPACE};
+          CREATE TABLE IF NOT EXISTS jobs (
+            id UUID PRIMARY KEY,
+            name TEXT,
+            description TEXT,
+            cron_expression TEXT,
+            status_text TEXT,
+            created_at TIMESTAMP,
+            updated_at TIMESTAMP,
+            last_run TIMESTAMP,
+            next_run TIMESTAMP,
+            metadata MAP<TEXT, TEXT>
+          );
+        \"
+        echo 'Cassandra initialization completed.'
+      "
+    networks:
+      - cassandra-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    hostname: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_SERVERS: zookeeper:2888:3888
+    ports:
+      - "2181:2181"
+    networks:
+      - kafka-network
+    healthcheck:
+      test: ["CMD-SHELL", "echo srvr | nc localhost 2181 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    hostname: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: ${KAFKA_BROKER_ID}
+      KAFKA_ZOOKEEPER_CONNECT: ${KAFKA_ZOOKEEPER_CONNECT}
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://${DOCKER_HOST_IP}:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_LOG4J_LOGGERS: "kafka.controller=INFO,kafka.producer.async.DefaultEventHandler=INFO,state.change.logger=INFO"
+      KAFKA_JMX_PORT: 9999
+      KAFKA_JMX_HOSTNAME: ${DOCKER_HOST_IP}
+      KAFKA_AUTHORIZER_CLASS_NAME: kafka.security.authorizer.AclAuthorizer
+      KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "true"
+    networks:
+      - kafka-network
+      - cassandra-network
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:29092 --list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  kafka-init:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./kafka-init.sh:/kafka-init.sh
+    command: ["/bin/bash", "/kafka-init.sh"]
+    networks:
+      - kafka-network
+
+  job-service:
+    image: golang:1.22
+    working_dir: /app
+    volumes:
+      - ./:/app
+    ports:
+      - "${JOB_SERVICE_GRPC_PORT}:${JOB_SERVICE_GRPC_PORT}"
+      - "${JOB_SERVICE_HTTP_PORT}:${JOB_SERVICE_HTTP_PORT}"
+    environment:
+      - KAFKA_BROKERS=kafka:29092
+      - CASSANDRA_HOSTS=cassandra
+      - CASSANDRA_KEYSPACE=${CASSANDRA_KEYSPACE}
+      - JOB_SERVICE_GRPC_PORT=${JOB_SERVICE_GRPC_PORT}
+      - JOB_SERVICE_HTTP_PORT=${JOB_SERVICE_HTTP_PORT}
+    command: >
+      sh -c "
+        echo 'Checking connection to Cassandra...' &&
+        go run -v ./cmd/connection_check/main.go cassandra 9042 &&
+        echo 'Checking connection to Kafka...' &&
+        go run -v ./cmd/connection_check/main.go kafka 29092 &&
+        go install github.com/air-verse/air@latest &&
+        air -c .air.job.toml
+      "
+    depends_on:
+      cassandra-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - cassandra-network
+      - kafka-network
+
+  scheduler-service:
+    image: golang:1.22
+    working_dir: /app
+    volumes:
+      - ./:/app
+    ports:
+      - "${SCHEDULER_SERVICE_GRPC_PORT}:${SCHEDULER_SERVICE_GRPC_PORT}"
+      - "${SCHEDULER_SERVICE_HTTP_PORT}:${SCHEDULER_SERVICE_HTTP_PORT}"
+    environment:
+      - KAFKA_BROKERS=kafka:29092
+      - CASSANDRA_HOSTS=cassandra
+      - CASSANDRA_KEYSPACE=${CASSANDRA_KEYSPACE}
+      - SCHEDULER_SERVICE_GRPC_PORT=${SCHEDULER_SERVICE_GRPC_PORT}
+      - SCHEDULER_SERVICE_HTTP_PORT=${SCHEDULER_SERVICE_HTTP_PORT}
+    command: >
+      sh -c "
+        echo 'Checking connection to Cassandra...' &&
+        go run -v ./cmd/connection_check/main.go cassandra 9042 &&
+        echo 'Checking connection to Kafka...' &&
+        go run -v ./cmd/connection_check/main.go kafka 29092 &&
+        go install github.com/air-verse/air@latest &&
+        air -c .air.scheduler.toml
+      "
+    depends_on:
+      cassandra-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - cassandra-network
+      - kafka-network
+
+  execution-service:
+    image: golang:1.22
+    working_dir: /app
+    volumes:
+      - ./:/app
+    ports:
+      - "${EXECUTION_SERVICE_PORT}:${EXECUTION_SERVICE_PORT}"
+    environment:
+      - KAFKA_BROKERS=kafka:29092
+      - CASSANDRA_HOSTS=cassandra
+      - CASSANDRA_KEYSPACE=${CASSANDRA_KEYSPACE}
+      - EXECUTION_SERVICE_PORT=${EXECUTION_SERVICE_PORT}
+    command: >
+      sh -c "
+        echo 'Checking connection to Cassandra...' &&
+        go run -v ./cmd/connection_check/main.go cassandra 9042 &&
+        echo 'Checking connection to Kafka...' &&
+        go run -v ./cmd/connection_check/main.go kafka 29092 &&
+        go install github.com/air-verse/air@latest &&
+        air -c .air.execution.toml
+      "
+    depends_on:
+      cassandra-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - cassandra-network
+      - kafka-network
+
+  cassandra-cleanup:
+    image: cassandra:latest
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./cassandra-cleanup.sh:/cassandra-cleanup.sh
+    user: "cassandra"
+    command: >
+      bash -c "
+        echo 'Waiting for Cassandra to be ready...'
+        while ! cqlsh cassandra -e 'describe keyspaces' > /dev/null 2>&1; do
+          sleep 5
+        done
+        echo 'Cassandra is ready, running cleanup script...'
+        /cassandra-cleanup.sh
+      "
+    networks:
+      - cassandra-network
+
+networks:
+  cassandra-network:
+  kafka-network:
+
+volumes:
+  cassandra_data:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: ${CASSANDRA_DATA_PATH}

@@ -1,0 +1,19 @@
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /app
+
+COPY . .
+
+RUN go build -o job-service ./cmd/job-service
+
+FROM alpine:latest
+
+WORKDIR /app
+
+COPY --from=builder /app/job-service .
+
+CMD ["./job-service"]
+
+# Expose ports for gRPC and HTTP
+EXPOSE 50054
+EXPOSE 8080
