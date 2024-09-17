@@ -14,9 +14,7 @@ import (
 	"github.com/nedson202/dts-go/internal/job"
 	pb "github.com/nedson202/dts-go/proto/job/v1"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
-	"google.golang.org/grpc/status"
 )
  
 type Server struct {
@@ -32,39 +30,6 @@ func NewServer(service *job.Service, grpcPort, httpPort string) *Server {
 		grpcPort: grpcPort,
 		httpPort: httpPort,
 	}
-}
-
-// Implement the gRPC service methods
-func (s *Server) CreateJob(ctx context.Context, req *pb.CreateJobRequest) (*pb.CreateJobResponse, error) {
-	// Validate cron expression
-	if err := job.ValidateCronExpression(req.CronExpression); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "Invalid cron expression: %v", err)
-	}
-
-	return s.service.CreateJob(ctx, req)
-}
-
-func (s *Server) GetJob(ctx context.Context, req *pb.GetJobRequest) (*pb.GetJobResponse, error) {
-	return s.service.GetJob(ctx, req)
-}
-
-func (s *Server) ListJobs(ctx context.Context, req *pb.ListJobsRequest) (*pb.ListJobsResponse, error) {
-	return s.service.ListJobs(ctx, req)
-}
-
-func (s *Server) UpdateJob(ctx context.Context, req *pb.UpdateJobRequest) (*pb.UpdateJobResponse, error) {
-	// Validate cron expression if it's being updated
-	if req.CronExpression != "" {
-		if err := job.ValidateCronExpression(req.CronExpression); err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "Invalid cron expression: %v", err)
-		}
-	}
-
-	return s.service.UpdateJob(ctx, req)
-}
-
-func (s *Server) DeleteJob(ctx context.Context, req *pb.DeleteJobRequest) (*pb.DeleteJobResponse, error) {
-	return s.service.DeleteJob(ctx, req)
 }
 
 // allowCORS allows Cross Origin Resource Sharing from any origin.

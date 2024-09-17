@@ -6,9 +6,10 @@ import (
 	"time"
 
 	"github.com/nedson202/dts-go/pkg/database"
-	jobpb "github.com/nedson202/dts-go/proto/job/v1"
 	"github.com/nedson202/dts-go/pkg/models"
+	jobpb "github.com/nedson202/dts-go/proto/job/v1"
 	pb "github.com/nedson202/dts-go/proto/scheduler/v1"
+
 	// "github.com/nedson202/dts-go/pkg/utils"
 	"google.golang.org/grpc"
 )

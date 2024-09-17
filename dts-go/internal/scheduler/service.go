@@ -8,9 +8,9 @@ import (
 
 	"github.com/gocql/gocql"
 	"github.com/nedson202/dts-go/pkg/database"
-	"github.com/nedson202/dts-go/proto/job/v1"
 	"github.com/nedson202/dts-go/pkg/models"
 	"github.com/nedson202/dts-go/pkg/queue"
+	jobv1 "github.com/nedson202/dts-go/proto/job/v1"
 	pb "github.com/nedson202/dts-go/proto/scheduler/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

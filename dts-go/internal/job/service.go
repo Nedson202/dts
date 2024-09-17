@@ -29,6 +29,11 @@ func NewService(cassandraClient *database.CassandraClient, kafkaClient *queue.Ka
 }
 
 func (s *Service) CreateJob(ctx context.Context, req *pb.CreateJobRequest) (*pb.CreateJobResponse, error) {
+	// Validate cron expression
+	if err := ValidateCronExpression(req.CronExpression); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "Invalid cron expression: %v", err)
+	}
+	
 	job := &models.Job{
 		ID:             gocql.TimeUUID(),
 		Name:           req.Name,
@@ -66,7 +71,7 @@ func (s *Service) CreateJob(ctx context.Context, req *pb.CreateJobRequest) (*pb.
 	return &pb.CreateJobResponse{JobId: job.ID.String()}, nil
 }
 
-func (s *Service) GetJob(ctx context.Context, req *pb.GetJobRequest) (*pb.GetJobResponse, error) {
+func (s *Service) GetJob(ctx context.Context, req *pb.GetJobRequest) (*pb.JobResponse, error) {
 	id, err := gocql.ParseUUID(req.Id)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "Invalid job ID")
@@ -108,7 +113,7 @@ func (s *Service) ListJobs(ctx context.Context, req *pb.ListJobsRequest) (*pb.Li
 		return nil, status.Errorf(codes.Internal, "Failed to list jobs")
 	}
 
-	var pbJobs []*pb.GetJobResponse
+	var pbJobs []*pb.JobResponse
 	for _, job := range jobs {
 		pbJobs = append(pbJobs, job.ToProto())
 	}
@@ -125,7 +130,14 @@ func (s *Service) ListJobs(ctx context.Context, req *pb.ListJobsRequest) (*pb.Li
 	}, nil
 }
 
-func (s *Service) UpdateJob(ctx context.Context, req *pb.UpdateJobRequest) (*pb.GetJobResponse, error) {
+func (s *Service) UpdateJob(ctx context.Context, req *pb.UpdateJobRequest) (*pb.JobResponse, error) {
+	// Validate cron expression if it's being updated
+	if req.CronExpression != "" {
+		if err := ValidateCronExpression(req.CronExpression); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "Invalid cron expression: %v", err)
+		}
+	}
+		
 	id, err := gocql.ParseUUID(req.Id)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "Invalid job ID")

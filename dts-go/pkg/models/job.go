@@ -24,8 +24,8 @@ type Job struct {
 	NextRun        time.Time
 }
 
-func (j *Job) ToProto() *pb.GetJobResponse {
-	return &pb.GetJobResponse{
+func (j *Job) ToProto() *pb.JobResponse {
+	return &pb.JobResponse{
 		Id:             j.ID.String(),
 		Name:           j.Name,
 		Description:    j.Description,
@@ -38,7 +38,7 @@ func (j *Job) ToProto() *pb.GetJobResponse {
 	}
 }
 
-func JobFromProto(pbJob *pb.GetJobResponse) (*Job, error) {
+func JobFromProto(pbJob *pb.JobResponse) (*Job, error) {
 	id, err := gocql.ParseUUID(pbJob.Id)
 	if err != nil {
 		return nil, err

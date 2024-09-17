@@ -32,23 +32,6 @@ func NewServer(service *scheduler.Service, grpcPort, httpPort string) *Server {
 	}
 }
 
-// Implement the gRPC service methods
-func (s *Server) ScheduleJob(ctx context.Context, req *pb.ScheduleJobRequest) (*pb.ScheduleJobResponse, error) {
-	return s.service.ScheduleJob(ctx, req)
-}
-
-func (s *Server) CancelJob(ctx context.Context, req *pb.CancelJobRequest) (*pb.CancelJobResponse, error) {
-	return s.service.CancelJob(ctx, req)
-}
-
-func (s *Server) GetScheduledJob(ctx context.Context, req *pb.GetScheduledJobRequest) (*pb.GetScheduledJobResponse, error) {
-	return s.service.GetScheduledJob(ctx, req)
-}
-
-func (s *Server) ListScheduledJobs(ctx context.Context, req *pb.ListScheduledJobsRequest) (*pb.ListScheduledJobsResponse, error) {
-	return s.service.ListScheduledJobs(ctx, req)
-}
-
 // allowCORS allows Cross Origin Resource Sharing from any origin.
 func allowCORS(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

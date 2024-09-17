@@ -96,7 +96,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/v1GetJobResponse"
+              "$ref": "#/definitions/v1JobResponse"
             }
           },
           "default": {
@@ -152,7 +152,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/v1UpdateJobResponse"
+              "$ref": "#/definitions/v1JobResponse"
             }
           },
           "default": {
@@ -300,7 +300,7 @@
         }
       }
     },
-    "v1GetJobResponse": {
+    "v1JobResponse": {
       "type": "object",
       "properties": {
         "id": {
@@ -372,7 +372,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "$ref": "#/definitions/v1GetJobResponse"
+            "$ref": "#/definitions/v1JobResponse"
           }
         },
         "total": {
@@ -381,56 +381,6 @@
         },
         "nextPage": {
           "type": "string"
-        }
-      }
-    },
-    "v1UpdateJobResponse": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        },
-        "cronExpression": {
-          "type": "string"
-        },
-        "status": {
-          "$ref": "#/definitions/v1JobStatus"
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "lastRun": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "metadata": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "priority": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "maxRetries": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "timeout": {
-          "type": "integer",
-          "format": "int32"
         }
       }
     }

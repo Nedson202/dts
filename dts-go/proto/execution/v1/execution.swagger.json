@@ -64,7 +64,7 @@
         }
       }
     },
-    "v1GetJobResponse": {
+    "v1JobResponse": {
       "type": "object",
       "properties": {
         "id": {

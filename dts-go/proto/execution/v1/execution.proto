@@ -12,7 +12,7 @@ service ExecutionService {
 }
 
 message ExecuteJobRequest {
-  job.v1.GetJobResponse job = 1;
+  job.v1.JobResponse job = 1;
 }
 
 message ExecuteJobResponse {

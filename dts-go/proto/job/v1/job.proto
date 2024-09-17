@@ -14,7 +14,7 @@ service JobService {
       body: "*"
     };
   }
-  rpc GetJob(GetJobRequest) returns (GetJobResponse) {
+  rpc GetJob(GetJobRequest) returns (JobResponse) {
     option (google.api.http) = {
       get: "/v1/jobs/{id}"
     };
@@ -24,7 +24,7 @@ service JobService {
       get: "/v1/jobs"
     };
   }
-  rpc UpdateJob(UpdateJobRequest) returns (UpdateJobResponse) {
+  rpc UpdateJob(UpdateJobRequest) returns (JobResponse) {
     option (google.api.http) = {
       put: "/v1/jobs/{id}"
       body: "*"
@@ -79,21 +79,6 @@ message UpdateJobResponse {
   int32 timeout = 12;
 }
 
-message GetJobResponse {
-  string id = 1;
-  string name = 2;
-  string description = 3;
-  string cron_expression = 4;
-  JobStatus status = 5;
-  google.protobuf.Timestamp created_at = 6;
-  google.protobuf.Timestamp updated_at = 7;
-  google.protobuf.Timestamp last_run = 8;
-  map<string, string> metadata = 9;
-  int32 priority = 10;
-  int32 max_retries = 11;
-  int32 timeout = 12;
-}
-
 message CreateJobRequest {
   string name = 1;
   string description = 2;
@@ -116,7 +101,7 @@ message ListJobsRequest {
 }
 
 message ListJobsResponse {
-  repeated GetJobResponse jobs = 1;
+  repeated JobResponse jobs = 1;
   int32 total = 2;
   string next_page = 3;
 }

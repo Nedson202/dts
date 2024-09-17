@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/nedson202/dts-go/pkg/job"
+	jobv1 "github.com/nedson202/dts-go/proto/job/v1"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -40,9 +40,9 @@ var createJobCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := job.NewJobServiceClient(conn)
+		client := jobv1.NewJobServiceClient(conn)
 
-		resp, err := client.CreateJob(context.Background(), &job.CreateJobRequest{
+		resp, err := client.CreateJob(context.Background(), &jobv1.CreateJobRequest{
 			Name:           name,
 			Description:    description,
 			CronExpression: cronExpression,
@@ -69,9 +69,9 @@ var getJobCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := job.NewJobServiceClient(conn)
+		client := jobv1.NewJobServiceClient(conn)
 
-		resp, err := client.GetJob(context.Background(), &job.GetJobRequest{
+		resp, err := client.GetJob(context.Background(), &jobv1.GetJobRequest{
 			Id: id,
 		})
 
@@ -100,9 +100,9 @@ var listJobsCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := job.NewJobServiceClient(conn)
+		client := jobv1.NewJobServiceClient(conn)
 
-		resp, err := client.ListJobs(context.Background(), &job.ListJobsRequest{
+		resp, err := client.ListJobs(context.Background(), &jobv1.ListJobsRequest{
 			PageSize: pageSize,
 			Status:   status,
 			LastId:   lastID,
@@ -145,14 +145,14 @@ var updateJobCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := job.NewJobServiceClient(conn)
+		client := jobv1.NewJobServiceClient(conn)
 
-		resp, err := client.UpdateJob(context.Background(), &job.UpdateJobRequest{
+		resp, err := client.UpdateJob(context.Background(), &jobv1.UpdateJobRequest{
 			Id:             id,
 			Name:           name,
 			Description:    description,
 			CronExpression: cronExpression,
-			Status:         job.JobStatus(job.JobStatus_value[status]),
+			Status:         jobv1.JobStatus(jobv1.JobStatus_value[status]),
 			Metadata:       metadataMap,
 		})
 
@@ -176,9 +176,9 @@ var deleteJobCmd = &cobra.Command{
 		}
 		defer conn.Close()
 
-		client := job.NewJobServiceClient(conn)
+		client := jobv1.NewJobServiceClient(conn)
 
-		resp, err := client.DeleteJob(context.Background(), &job.DeleteJobRequest{
+		resp, err := client.DeleteJob(context.Background(), &jobv1.DeleteJobRequest{
 			Id: id,
 		})
 
@@ -218,7 +218,7 @@ func init() {
 	deleteJobCmd.Flags().String("id", "", "ID of the job")
 }
 
-func printJobResponse(j *job.Job) {
+func printJobResponse(j *jobv1.JobResponse) {
 	m := protojson.MarshalOptions{
 		Indent:          "  ",
 		EmitUnpopulated: true,
