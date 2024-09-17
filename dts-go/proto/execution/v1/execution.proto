@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package execution.v1;
+
+option go_package = "github.com/nedson202/dts-go/pkg/execution/v1;executionv1";
+
+import "proto/job/v1/job.proto";
+
+service ExecutionService {
+  rpc ExecuteJob(ExecuteJobRequest) returns (ExecuteJobResponse);
+  rpc GetExecutionStatus(GetExecutionStatusRequest) returns (GetExecutionStatusResponse);
+}
+
+message ExecuteJobRequest {
+  job.v1.GetJobResponse job = 1;
+}
+
+message ExecuteJobResponse {
+  string execution_id = 1;
+}
+
+message GetExecutionStatusRequest {
+  string execution_id = 1;
+}
+
+message GetExecutionStatusResponse {
+  string status = 1;
+  string result = 2;
+}

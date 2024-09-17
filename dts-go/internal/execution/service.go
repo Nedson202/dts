@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"github.com/nedson202/dts-go/pkg/database"
-	pb "github.com/nedson202/dts-go/pkg/execution"
+	pb "github.com/nedson202/dts-go/proto/execution/v1"
 	"github.com/nedson202/dts-go/pkg/queue"
 )
 

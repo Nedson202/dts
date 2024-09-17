@@ -12,7 +12,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/nedson202/dts-go/internal/scheduler"
-	pb "github.com/nedson202/dts-go/pkg/scheduler"
+	pb "github.com/nedson202/dts-go/proto/scheduler/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -41,7 +41,7 @@ func (s *Server) CancelJob(ctx context.Context, req *pb.CancelJobRequest) (*pb.C
 	return s.service.CancelJob(ctx, req)
 }
 
-func (s *Server) GetScheduledJob(ctx context.Context, req *pb.GetScheduledJobRequest) (*pb.ScheduledJob, error) {
+func (s *Server) GetScheduledJob(ctx context.Context, req *pb.GetScheduledJobRequest) (*pb.GetScheduledJobResponse, error) {
 	return s.service.GetScheduledJob(ctx, req)
 }
 

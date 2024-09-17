@@ -8,10 +8,10 @@ import (
 
 	"github.com/gocql/gocql"
 	"github.com/nedson202/dts-go/pkg/database"
-	"github.com/nedson202/dts-go/pkg/job"
+	"github.com/nedson202/dts-go/proto/job/v1"
 	"github.com/nedson202/dts-go/pkg/models"
 	"github.com/nedson202/dts-go/pkg/queue"
-	pb "github.com/nedson202/dts-go/pkg/scheduler"
+	pb "github.com/nedson202/dts-go/proto/scheduler/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -126,7 +126,7 @@ func (s *Service) CancelJob(ctx context.Context, req *pb.CancelJobRequest) (*pb.
 	return &pb.CancelJobResponse{Success: true}, nil
 }
 
-func (s *Service) GetScheduledJob(ctx context.Context, req *pb.GetScheduledJobRequest) (*pb.ScheduledJob, error) {
+func (s *Service) GetScheduledJob(ctx context.Context, req *pb.GetScheduledJobRequest) (*pb.GetScheduledJobResponse, error) {
 	jobID, err := gocql.ParseUUID(req.JobId)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "Invalid job ID: %v", err)
@@ -160,7 +160,7 @@ func (s *Service) ListScheduledJobs(ctx context.Context, req *pb.ListScheduledJo
 		return nil, status.Errorf(codes.Internal, "Failed to list scheduled jobs: %v", err)
 	}
 
-	var pbJobs []*pb.ScheduledJob
+	var pbJobs []*pb.GetScheduledJobResponse
 	for _, job := range scheduledJobs {
 		pbJobs = append(pbJobs, job.ToProto())
 	}
@@ -179,7 +179,7 @@ func (s *Service) ListScheduledJobs(ctx context.Context, req *pb.ListScheduledJo
 
 type ScheduledJob struct {
 	JobID     gocql.UUID
-	Job       *job.Job
+	Job       *jobv1.GetJobResponse
 	Resources *models.Resources
 	StartTime time.Time
 }

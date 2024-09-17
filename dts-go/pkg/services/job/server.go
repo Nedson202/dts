@@ -12,7 +12,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/nedson202/dts-go/internal/job"
-	pb "github.com/nedson202/dts-go/pkg/job"
+	pb "github.com/nedson202/dts-go/proto/job/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
@@ -44,7 +44,7 @@ func (s *Server) CreateJob(ctx context.Context, req *pb.CreateJobRequest) (*pb.C
 	return s.service.CreateJob(ctx, req)
 }
 
-func (s *Server) GetJob(ctx context.Context, req *pb.GetJobRequest) (*pb.Job, error) {
+func (s *Server) GetJob(ctx context.Context, req *pb.GetJobRequest) (*pb.GetJobResponse, error) {
 	return s.service.GetJob(ctx, req)
 }
 
@@ -52,7 +52,7 @@ func (s *Server) ListJobs(ctx context.Context, req *pb.ListJobsRequest) (*pb.Lis
 	return s.service.ListJobs(ctx, req)
 }
 
-func (s *Server) UpdateJob(ctx context.Context, req *pb.UpdateJobRequest) (*pb.Job, error) {
+func (s *Server) UpdateJob(ctx context.Context, req *pb.UpdateJobRequest) (*pb.UpdateJobResponse, error) {
 	// Validate cron expression if it's being updated
 	if req.CronExpression != "" {
 		if err := job.ValidateCronExpression(req.CronExpression); err != nil {

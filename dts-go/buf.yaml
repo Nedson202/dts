@@ -1,0 +1,11 @@
+version: v2
+name: buf.build/dts-go/proto
+deps:
+  - buf.build/googleapis/googleapis
+lint:
+  use:
+    - STANDARD
+breaking:
+  use:
+    - FILE
+

@@ -1,7 +1,7 @@
 .PHONY: proto build run docker-build docker-run docker-stop cli dev dev-job dev-scheduler dev-execution migrate
 
 proto:
-	./generate_protos.sh
+	buf generate
 
 build: proto
 	go build -o bin/job-service ./cmd/job-service

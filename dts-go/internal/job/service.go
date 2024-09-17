@@ -8,9 +8,9 @@ import (
 
 	"github.com/gocql/gocql"
 	"github.com/nedson202/dts-go/pkg/database"
-	pb "github.com/nedson202/dts-go/pkg/job"
 	"github.com/nedson202/dts-go/pkg/models"
 	"github.com/nedson202/dts-go/pkg/queue"
+	pb "github.com/nedson202/dts-go/proto/job/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -66,7 +66,7 @@ func (s *Service) CreateJob(ctx context.Context, req *pb.CreateJobRequest) (*pb.
 	return &pb.CreateJobResponse{JobId: job.ID.String()}, nil
 }
 
-func (s *Service) GetJob(ctx context.Context, req *pb.GetJobRequest) (*pb.Job, error) {
+func (s *Service) GetJob(ctx context.Context, req *pb.GetJobRequest) (*pb.GetJobResponse, error) {
 	id, err := gocql.ParseUUID(req.Id)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "Invalid job ID")
@@ -108,7 +108,7 @@ func (s *Service) ListJobs(ctx context.Context, req *pb.ListJobsRequest) (*pb.Li
 		return nil, status.Errorf(codes.Internal, "Failed to list jobs")
 	}
 
-	var pbJobs []*pb.Job
+	var pbJobs []*pb.GetJobResponse
 	for _, job := range jobs {
 		pbJobs = append(pbJobs, job.ToProto())
 	}
@@ -125,7 +125,7 @@ func (s *Service) ListJobs(ctx context.Context, req *pb.ListJobsRequest) (*pb.Li
 	}, nil
 }
 
-func (s *Service) UpdateJob(ctx context.Context, req *pb.UpdateJobRequest) (*pb.Job, error) {
+func (s *Service) UpdateJob(ctx context.Context, req *pb.UpdateJobRequest) (*pb.GetJobResponse, error) {
 	id, err := gocql.ParseUUID(req.Id)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "Invalid job ID")

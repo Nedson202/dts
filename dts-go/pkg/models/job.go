@@ -6,7 +6,7 @@ import (
 
 	"github.com/gocql/gocql"
 	"github.com/nedson202/dts-go/pkg/database"
-	pb "github.com/nedson202/dts-go/pkg/job"
+	pb "github.com/nedson202/dts-go/proto/job/v1"
 	"github.com/robfig/cron/v3"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -24,8 +24,8 @@ type Job struct {
 	NextRun        time.Time
 }
 
-func (j *Job) ToProto() *pb.Job {
-	return &pb.Job{
+func (j *Job) ToProto() *pb.GetJobResponse {
+	return &pb.GetJobResponse{
 		Id:             j.ID.String(),
 		Name:           j.Name,
 		Description:    j.Description,
@@ -38,7 +38,7 @@ func (j *Job) ToProto() *pb.Job {
 	}
 }
 
-func JobFromProto(pbJob *pb.Job) (*Job, error) {
+func JobFromProto(pbJob *pb.GetJobResponse) (*Job, error) {
 	id, err := gocql.ParseUUID(pbJob.Id)
 	if err != nil {
 		return nil, err

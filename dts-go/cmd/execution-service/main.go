@@ -8,7 +8,7 @@ import (
 	"github.com/nedson202/dts-go/internal/execution"
 	"github.com/nedson202/dts-go/pkg/config"
 	"github.com/nedson202/dts-go/pkg/database"
-	pb "github.com/nedson202/dts-go/pkg/execution"
+	pb "github.com/nedson202/dts-go/proto/execution/v1"
 	"github.com/nedson202/dts-go/pkg/queue"
 	"google.golang.org/grpc"
 )

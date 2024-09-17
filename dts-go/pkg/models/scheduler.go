@@ -7,7 +7,7 @@ import (
 
 	"github.com/gocql/gocql"
 	"github.com/nedson202/dts-go/pkg/database"
-	pb "github.com/nedson202/dts-go/pkg/scheduler"
+	pb "github.com/nedson202/dts-go/proto/scheduler/v1"
 )
 
 type ScheduledJob struct {
@@ -183,8 +183,8 @@ func ReleaseResources(client *database.CassandraClient, resources Resources) err
 	return nil
 }
 
-func (s *ScheduledJob) ToProto() *pb.ScheduledJob {
-	return &pb.ScheduledJob{
+func (s *ScheduledJob) ToProto() *pb.GetScheduledJobResponse {
+	return &pb.GetScheduledJobResponse{
 		JobId:                s.JobID.String(),
 		NextExecutionTime:    s.StartTime.Format(time.RFC3339),
 		ResourceRequirements: s.Resources.ToProto(),
@@ -199,7 +199,7 @@ func (r *Resources) ToProto() *pb.Resources {
 	}
 }
 
-func ScheduledJobFromProto(p *pb.ScheduledJob) (*ScheduledJob, error) {
+func ScheduledJobFromProto(p *pb.GetScheduledJobResponse) (*ScheduledJob, error) {
 	jobID, err := gocql.ParseUUID(p.JobId)
 	if err != nil {
 		return nil, err

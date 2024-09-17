@@ -29,6 +29,7 @@ The system uses Apache Kafka for message queuing and Apache Cassandra for persis
 - Docker and Docker Compose
 - Apache Kafka
 - Apache Cassandra
+- buf (for protocol buffer management)
 
 ## Getting Started
 
@@ -62,7 +63,15 @@ The system uses Apache Kafka for message queuing and Apache Cassandra for persis
    docker compose -f docker-compose.dev.yml up -d
    ```
 
+4. Install buf:
+   ```
+   go install github.com/bufbuild/buf/cmd/buf@latest
+   ```
 
+5. Generate protocol buffers:
+   ```
+   buf generate
+   ```
 
 ## Database Setup and Migrations
 
@@ -174,12 +183,13 @@ curl -X POST http://localhost:8080/v1/jobs \
 
 ### Generating Protocol Buffers
 
-After modifying the `.proto` files in the `api/proto/` directory, regenerate the Go code:
+After modifying the `.proto` files in the `proto/` directory, regenerate the Go code:
 
-### Running Tests
+```
+buf generate
+```
 
-Run the tests with:
-
+This command will update the generated Go code based on the changes in the `.proto` files.
 
 ## Configuration
 
