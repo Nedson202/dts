@@ -51,3 +51,12 @@ dev-build:
 
 dev-restart:
 	docker compose -f docker-compose.dev.yml restart
+
+migrate-up:
+	migrate -path ./migrations -database cassandra://${CASSANDRA_HOSTS}/${CASSANDRA_KEYSPACE} up
+
+migrate-down:
+	migrate -path ./migrations -database cassandra://${CASSANDRA_HOSTS}/${CASSANDRA_KEYSPACE} down
+
+migrate-create:
+	migrate create -ext cql -dir ./migrations $(name)

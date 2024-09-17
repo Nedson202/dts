@@ -1,65 +1,84 @@
-import React, { useEffect, useState } from 'react';
-import * as Dialog from '@radix-ui/react-dialog';
-import * as Form from '@radix-ui/react-form';
-import { Button } from './Button';
+import React, { useState, useEffect } from 'react';
+import { Dialog, Button, Flex, TextField, Text } from '@radix-ui/themes';
 import { Job } from '../types';
 
 interface JobEditDialogProps {
+    isOpen: boolean;
+    onClose: () => void;
     job: Job | null;
     onSave: (updatedJob: Job) => void;
-    onClose: () => void;
 }
 
-export function JobEditDialog({ job, onSave, onClose }: JobEditDialogProps) {
-    const [editedJob, setEditedJob] = useState<Job | null>(job);
+export const JobEditDialog: React.FC<JobEditDialogProps> = ({ isOpen, onClose, job, onSave }) => {
+    const [editedJob, setEditedJob] = useState<Job | null>(null);
 
     useEffect(() => {
-        setEditedJob(job);
+        if (job) {
+            setEditedJob({ ...job });
+        }
     }, [job]);
 
-    if (!editedJob) return null;
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (editedJob) {
+            setEditedJob({ ...editedJob, [e.target.name]: e.target.value });
+        }
+    };
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSave(editedJob);
+    const handleSave = () => {
+        if (editedJob) {
+            onSave(editedJob);
+        }
         onClose();
     };
 
+    if (!editedJob) return null;
+
     return (
-        <Dialog.Root open={!job} onOpenChange={onClose}>
-            <Dialog.Portal>
-                <Dialog.Overlay className="fixed inset-0 bg-black/50" />
-                <Dialog.Content className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white p-6 rounded-lg shadow-lg">
-                    <Dialog.Title className="text-lg font-bold mb-4">Edit Job</Dialog.Title>
-                    <Form.Root onSubmit={handleSubmit}>
-                        <Form.Field name="name">
-                            <Form.Label>Name</Form.Label>
-                            <Form.Control asChild>
-                                <input
-                                    type="text"
-                                    value={editedJob.name}
-                                    onChange={(e) => setEditedJob({ ...editedJob, name: e.target.value })}
-                                    className="w-full p-2 border rounded"
-                                />
-                            </Form.Control>
-                        </Form.Field>
-                        <Form.Field name="description" className="mt-4">
-                            <Form.Label>Description</Form.Label>
-                            <Form.Control asChild>
-                                <textarea
-                                    value={editedJob.description}
-                                    onChange={(e) => setEditedJob({ ...editedJob, description: e.target.value })}
-                                    className="w-full p-2 border rounded"
-                                />
-                            </Form.Control>
-                        </Form.Field>
-                        <div className="mt-6 flex justify-end space-x-2">
-                            <Button onClick={onClose} variant="secondary">Cancel</Button>
-                            <Button type="submit">Save Changes</Button>
-                        </div>
-                    </Form.Root>
-                </Dialog.Content>
-            </Dialog.Portal>
+        <Dialog.Root open={isOpen} onOpenChange={onClose}>
+            <Dialog.Content style={{ maxWidth: 450 }}>
+                <Dialog.Title>Edit Job</Dialog.Title>
+                <Flex direction="column" gap="3">
+                    <label>
+                        <Text as="div" size="2" mb="1" weight="bold">
+                            Name
+                        </Text>
+                        <TextField.Input
+                            name="name"
+                            value={editedJob.name}
+                            onChange={handleInputChange}
+                        />
+                    </label>
+                    <label>
+                        <Text as="div" size="2" mb="1" weight="bold">
+                            Description
+                        </Text>
+                        <TextField.Input
+                            name="description"
+                            value={editedJob.description}
+                            onChange={handleInputChange}
+                        />
+                    </label>
+                    <label>
+                        <Text as="div" size="2" mb="1" weight="bold">
+                            Cron Expression
+                        </Text>
+                        <TextField.Input
+                            name="cronExpression"
+                            value={editedJob.cronExpression}
+                            onChange={handleInputChange}
+                        />
+                    </label>
+                    {/* Add more fields as needed */}
+                </Flex>
+                <Flex gap="3" mt="4" justify="end">
+                    <Dialog.Close>
+                        <Button variant="soft" color="gray">
+                            Cancel
+                        </Button>
+                    </Dialog.Close>
+                    <Button onClick={handleSave}>Save Changes</Button>
+                </Flex>
+            </Dialog.Content>
         </Dialog.Root>
     );
-}
+};

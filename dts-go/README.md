@@ -11,6 +11,7 @@ DTS-Go is a robust, scalable distributed task scheduler system built with Go. It
 - Scalable architecture using Kafka and Cassandra
 - gRPC and HTTP API support
 - CLI tool for easy interaction with the system
+- Docker Compose setup for easy development and deployment
 
 ## Architecture
 
@@ -24,7 +25,7 @@ The system uses Apache Kafka for message queuing and Apache Cassandra for persis
 
 ## Prerequisites
 
-- Go 1.16+
+- Go 1.22+
 - Docker and Docker Compose
 - Apache Kafka
 - Apache Cassandra
@@ -39,25 +40,69 @@ The system uses Apache Kafka for message queuing and Apache Cassandra for persis
 
 2. Set up the environment variables in a `.env` file:
    ```
-   KAFKA_BROKERS=localhost:9092
-   CASSANDRA_HOSTS=localhost
+   CASSANDRA_DATA_PATH=./cassandra/data
+   CASSANDRA_CLUSTER_NAME=Turquoise
    CASSANDRA_KEYSPACE=task_scheduler
+   KAFKA_BROKER_ID=1
+   KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+   DOCKER_HOST_IP=127.0.0.1
    JOB_SERVICE_GRPC_PORT=50054
    JOB_SERVICE_HTTP_PORT=8080
    SCHEDULER_SERVICE_GRPC_PORT=50052
    SCHEDULER_SERVICE_HTTP_PORT=8081
+   EXECUTION_SERVICE_PORT=50053
+   CASSANDRA_DATA_RETENTION_DAYS=30
+   KAFKA_JOB_TOPIC=jobs
+   KAFKA_SCHEDULER_TOPIC=scheduled-jobs
+   KAFKA_EXECUTION_TOPIC=job-executions
    ```
 
-3. Run database migrations:
+3. Start the services using Docker Compose:
    ```
-   make migrate
+   docker compose -f docker-compose.dev.yml up -d
    ```
-   This will create necessary tables and apply any pending migrations to your Cassandra database.
 
-4. Build and run the services using Docker Compose:
+
+
+## Database Setup and Migrations
+
+The project uses Apache Cassandra as its database. The initial schema and subsequent migrations are managed using SQL files in the `migrations` directory.
+
+### Migration Files
+
+- `000_init_schema.up.cql`: Initial schema creation
+- `000_init_schema.down.cql`: Reverses the initial schema creation
+- `001_add_next_run_to_jobs.up.cql`: Adds the `next_run` column to the `jobs` table
+- `001_add_next_run_to_jobs.down.cql`: Removes the `next_run` column from the `jobs` table
+- `002_add_last_run_to_jobs.up.cql`: Adds the `last_run` column to the `jobs` table
+- `002_add_last_run_to_jobs.down.cql`: Removes the `last_run` column from the `jobs` table
+
+### Running Migrations
+
+Migrations are automatically applied when starting the services using Docker Compose. For manual migration management, we use `golang-migrate`. To run migrations manually:
+
+1. Install golang-migrate:
    ```
-   docker-compose up --build
+   go install -tags 'cassandra' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
    ```
+
+2. Run migrations:
+   ```
+   make migrate-up
+   ```
+
+3. To revert migrations:
+   ```
+   make migrate-down
+   ```
+
+4. To create a new migration:
+   ```
+   make migrate-create name=add_new_column
+   ```
+
+This will create new migration files in the `migrations` directory.
+
 
 ## Usage
 
@@ -187,26 +232,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Protocol Buffers](https://developers.google.com/protocol-buffers)
 - [Apache Kafka](https://kafka.apache.org/)
 - [Apache Cassandra](https://cassandra.apache.org/)
-
-## Database Migrations
-
-The project uses a simple migration system to manage database schema changes. Migrations are stored in the `migrations` directory and are executed in alphabetical order.
-
-Current migrations:
-
-1. `001_add_next_run_to_jobs.cql`: Adds the `next_run` column to the `jobs` table.
-2. `002_add_last_run_to_jobs.cql`: Adds the `last_run` column to the `jobs` table.
-
-To run migrations:
-
-```
-make migrate
-```
-
-To create a new migration:
-
-1. Create a new `.cql` file in the `migrations` directory with a descriptive name, prefixed with a sequential number (e.g., `003_add_new_column.cql`).
-2. Write your Cassandra CQL statements in the file.
-3. Run the migration using the command above.
-
-The migration system will keep track of applied migrations and only run new ones.

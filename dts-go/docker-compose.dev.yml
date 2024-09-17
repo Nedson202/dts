@@ -15,7 +15,7 @@ services:
       retries: 5
     volumes:
       - ${CASSANDRA_DATA_PATH}:/var/lib/cassandra
-      - ./cassandra-cleanup.sh:/cassandra-cleanup.sh
+      - ./migrations:/migrations
     command: ["cassandra", "-f"]
     user: "cassandra"
     deploy:
@@ -31,33 +31,23 @@ services:
     depends_on:
       cassandra:
         condition: service_healthy
-    user: "cassandra"
+    volumes:
+      - ./migrations:/migrations
     command: >
       /bin/bash -c "
         echo 'Waiting for Cassandra to be ready...';
         while ! cqlsh cassandra -e 'describe keyspaces' > /dev/null 2>&1; do
           sleep 5;
         done;
-        echo 'Creating keyspace and tables...';
-        cqlsh cassandra -e \"
-          CREATE KEYSPACE IF NOT EXISTS ${CASSANDRA_KEYSPACE}
-          WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
-          USE ${CASSANDRA_KEYSPACE};
-          CREATE TABLE IF NOT EXISTS jobs (
-            id UUID PRIMARY KEY,
-            name TEXT,
-            description TEXT,
-            cron_expression TEXT,
-            status_text TEXT,
-            created_at TIMESTAMP,
-            updated_at TIMESTAMP,
-            last_run TIMESTAMP,
-            next_run TIMESTAMP,
-            metadata MAP<TEXT, TEXT>
-          );
-        \"
-        echo 'Cassandra initialization completed.'
+        echo 'Running Cassandra migrations...';
+        for file in /migrations/*.up.cql; do
+          echo "Applying migration: $file";
+          cqlsh cassandra -f "$file";
+        done;
+        echo 'Cassandra migrations completed.'
       "
+    environment:
+      - CASSANDRA_KEYSPACE=${CASSANDRA_KEYSPACE}
     networks:
       - cassandra-network
 

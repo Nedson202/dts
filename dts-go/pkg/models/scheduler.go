@@ -64,38 +64,56 @@ func ListScheduledJobs(client *database.CassandraClient, pageSize int, lastID go
 	var args []interface{}
 
 	nilUUID := gocql.UUID{}
-	if lastID == nilUUID {
+    if lastID == nilUUID {
 		query = `
-			SELECT id, job_data, resources, start_time 
+			SELECT id, job_data, cpu, memory, storage, start_time 
 			FROM scheduled_jobs 
 			LIMIT ?
 		`
 		args = []interface{}{pageSize}
 	} else {
 		query = `
-			SELECT id, job_data, resources, start_time 
+			SELECT id, job_data, cpu, memory, storage, start_time 
 			FROM scheduled_jobs 
-			WHERE token(id) > token(?) 
+			WHERE id > ? 
 			LIMIT ?
 		`
 		args = []interface{}{lastID, pageSize}
 	}
 
 	iter := client.Session.Query(query, args...).Iter()
-	var jobs []*ScheduledJob
-	var job ScheduledJob
+	var scheduledJobs []*ScheduledJob
+
+	var id gocql.UUID
 	var jobData string
-	for iter.Scan(&job.JobID, &jobData, &job.Resources.CPU, &job.Resources.Memory, &job.Resources.Storage, &job.StartTime) {
-		err := json.Unmarshal([]byte(jobData), &job.Job)
+	var cpu, memory, storage int32
+	var startTime time.Time
+
+	for iter.Scan(&id, &jobData, &cpu, &memory, &storage, &startTime) {
+		var job Job
+		err := json.Unmarshal([]byte(jobData), &job)
 		if err != nil {
 			return nil, err
 		}
-		jobs = append(jobs, &job)
+
+		scheduledJob := &ScheduledJob{
+			JobID: id,
+			Job: job,
+			Resources: Resources{
+				CPU:     cpu,
+				Memory:  memory,
+				Storage: storage,
+			},
+			StartTime: startTime,
+		}
+		scheduledJobs = append(scheduledJobs, scheduledJob)
 	}
+
 	if err := iter.Close(); err != nil {
 		return nil, err
 	}
-	return jobs, nil
+
+	return scheduledJobs, nil
 }
 
 func GetAvailableResources(client *database.CassandraClient) (*Resources, error) {

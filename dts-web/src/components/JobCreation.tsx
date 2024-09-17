@@ -22,7 +22,7 @@ const JobCreation: React.FC = () => {
             max_retries: maxRetries,
             timeout
         });
-        navigate(`/job/${newJob.id}`);
+        navigate(`/job/${newJob.jobId}`);
     };
 
     return (
