@@ -25,7 +25,6 @@ func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 			Str("method", info.FullMethod).
 			Dur("duration", duration).
 			Interface("request", req).
-			Interface("response", resp).
 			Int("code", int(st.Code())).
 			Msg("gRPC request")
 

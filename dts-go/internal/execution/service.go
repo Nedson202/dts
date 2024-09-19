@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gocql/gocql"
+	"github.com/nedson202/dts-go/pkg/config"
 	"github.com/nedson202/dts-go/pkg/database"
 	"github.com/nedson202/dts-go/pkg/logger"
 	"github.com/nedson202/dts-go/pkg/models"
@@ -15,12 +16,19 @@ import (
 type Service struct {
 	pb.UnimplementedExecutionServiceServer
 	cassandraClient *database.CassandraClient
+	taskConsumer    *TaskConsumer
 }
 
-func NewService(cassandraClient *database.CassandraClient) *Service {
+func NewService(cassandraClient *database.CassandraClient, brokers []string, groupID string, jobServiceAddr string) (*Service, error) {
+	taskConsumer, err := NewTaskConsumer(cassandraClient, brokers, groupID, jobServiceAddr)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Service{
 		cassandraClient: cassandraClient,
-	}
+		taskConsumer:    taskConsumer,
+	}, nil
 }
 
 func (s *Service) GetExecution(ctx context.Context, req *pb.GetExecutionRequest) (*pb.ExecutionResponse, error) {
@@ -77,4 +85,18 @@ func (s *Service) ListExecutions(ctx context.Context, req *pb.ListExecutionsRequ
 		Total:      int32(len(pbExecutions)),
 		NextPage:   nextLastID,
 	}, nil
+}
+
+func (s *Service) StartTaskConsumer(ctx context.Context) error {
+	logger.Info().Msg("Starting TaskConsumer")
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to load config")
+	}
+	return s.taskConsumer.Start(ctx, cfg.TaskTopic)
+}
+
+func (s *Service) StopTaskConsumer() error {
+	logger.Info().Msg("Stopping TaskConsumer")
+	return s.taskConsumer.Stop()
 }

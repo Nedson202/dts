@@ -38,16 +38,4 @@ func (s *Server) Run(ctx context.Context) error {
 	// Run the main scheduling loop
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			logger.Info().Msg("Scheduler service shutting down...")
-			return nil
-		case <-ticker.C:
-			if err := s.scheduler.ProcessPendingJobs(ctx); err != nil {
-				logger.Error().Err(err).Msg("Error processing pending jobs")
-			}
-		}
-	}
 }

@@ -27,24 +27,21 @@ func main() {
 	}
 	defer cassandraClient.Close()
 
-	executionService := execution.NewService(cassandraClient)
+	executionService, err := execution.NewService(cassandraClient, cfg.KafkaBrokers, "execution-group", cfg.JobServiceAddr)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to create execution service")
+	}
 
 	// Create and run server
 	server := executionServer.NewServer(executionService, cfg.ExecutionServiceGRPCPort, cfg.ExecutionServiceHTTPPort)
 
-	// Start Kafka consumer
-	kafkaConsumer, err := execution.NewKafkaConsumer(cfg.KafkaBrokers, "execution-group", cassandraClient, cfg.JobServiceAddr)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to create Kafka consumer")
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Start the consumer in a new goroutine
+	// Start the TaskConsumer
 	go func() {
-		if err := kafkaConsumer.Consume(ctx, []string{cfg.TaskTopic}); err != nil {
-			logger.Fatal().Err(err).Msg("Error from consumer")
+		if err := executionService.StartTaskConsumer(ctx); err != nil {
+			logger.Fatal().Err(err).Msg("Error from TaskConsumer")
 		}
 	}()
 
@@ -61,8 +58,13 @@ func main() {
 	<-quit
 	logger.Info().Msg("Shutting down server...")
 
-	// Cancel the context to stop the Kafka consumer
+	// Cancel the context to stop the TaskConsumer
 	cancel()
+
+	// Stop the TaskConsumer
+	if err := executionService.StopTaskConsumer(); err != nil {
+		logger.Error().Err(err).Msg("Error stopping TaskConsumer")
+	}
 
 	logger.Info().Msg("Server exiting")
 }

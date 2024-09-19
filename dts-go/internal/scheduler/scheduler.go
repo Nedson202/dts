@@ -138,10 +138,17 @@ func (s *Scheduler) scheduleJob(ctx context.Context, job *models.Job) error {
 		return err
 	}
 
+	idempotencyKey, err := uuid.NewV4()
+	if err != nil {
+		logger.Error().Err(err).Msgf("Error generating unique ID for job %s", job.ID)
+		return err
+	}
+
 	// Use QueueManager to enqueue the job
 	scheduledJob := &ScheduledJob{
-		JobID:     uuid.FromStringOrNil(job.ID.String()),
-		StartTime: time.Now(),
+		IdempotencyKey: idempotencyKey.String(),
+		JobID:          uuid.FromStringOrNil(job.ID.String()),
+		StartTime:      time.Now(),
 	}
 	err = s.queueManager.EnqueueJob(ctx, scheduledJob)
 	if err != nil {
@@ -166,6 +173,7 @@ func (s *Scheduler) revertJobStatus(ctx context.Context, jobID string, status jo
 }
 
 type ScheduledJob struct {
-	JobID     uuid.UUID
+	IdempotencyKey string
+	JobID          uuid.UUID
 	StartTime time.Time
 }

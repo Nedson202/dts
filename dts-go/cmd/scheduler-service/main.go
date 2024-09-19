@@ -10,17 +10,19 @@ import (
 
 	"github.com/nedson202/dts-go/pkg/config"
 	"github.com/nedson202/dts-go/pkg/database"
+	"github.com/nedson202/dts-go/pkg/logger"
 	"github.com/nedson202/dts-go/pkg/queue"
 	"github.com/nedson202/dts-go/pkg/services/scheduler"
 )
 
 func main() {
+	logger.Init()
+
 	// Load configuration
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
-	log.Printf("Config loaded: %v", cfg.JobServiceAddr)
 
 	cassandraClient, err := database.NewCassandraClient(cfg.CassandraHosts, cfg.CassandraKeyspace)
 	if err != nil {
@@ -36,7 +38,6 @@ func main() {
 
 	
 	checkInterval := 1 * time.Minute
-
 	server, err := scheduler.NewServer(cassandraClient, kafkaClient, checkInterval)
 	if err != nil {
 		log.Fatalf("Failed to create scheduler server: %v", err)

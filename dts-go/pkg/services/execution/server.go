@@ -13,7 +13,6 @@ import (
 	pb "github.com/nedson202/dts-go/proto/execution/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 type Server struct {
@@ -63,18 +62,17 @@ func (s *Server) Run() error {
 	}()
 
 	// Create a client connection to the gRPC server
-	ctx := context.Background()
-	conn, err := grpc.NewClient(ctx, fmt.Sprintf("0.0.0.0:%s", s.grpcPort),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
+	conn, err := grpc.DialContext(
+		context.Background(),
+		fmt.Sprintf("0.0.0.0:%s", s.grpcPort),
+		grpc.WithInsecure(),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create gRPC client: %v", err)
+		return fmt.Errorf("failed to dial server: %v", err)
 	}
-	defer conn.Close()
 
 	gwmux := runtime.NewServeMux()
-	err = pb.RegisterExecutionServiceHandlerClient(ctx, gwmux, pb.NewExecutionServiceClient(conn))
+	err = pb.RegisterExecutionServiceHandlerClient(context.Background(), gwmux, pb.NewExecutionServiceClient(conn))
 	if err != nil {
 		return fmt.Errorf("failed to register gateway: %v", err)
 	}

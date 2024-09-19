@@ -6,7 +6,6 @@ require (
 	github.com/IBM/sarama v1.43.3
 	github.com/gocql/gocql v1.6.0
 	github.com/gofrs/uuid v4.4.0+incompatible
-	github.com/golang/glog v1.2.1
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.1
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/zerolog v1.31.0
