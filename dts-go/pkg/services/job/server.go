@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strings"
 
-	"github.com/golang/glog"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/nedson202/dts-go/internal/job"
 	"github.com/nedson202/dts-go/pkg/logger"
@@ -15,6 +13,7 @@ import (
 	pb "github.com/nedson202/dts-go/proto/job/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type Server struct {
@@ -57,28 +56,7 @@ func (s *Server) CancelJob(ctx context.Context, req *pb.CancelJobRequest) (*pb.C
 	return s.service.CancelJob(ctx, req)
 }
 
-// allowCORS allows Cross Origin Resource Sharing from any origin.
-func allowCORS(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if origin := r.Header.Get("Origin"); origin != "" {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			if r.Method == "OPTIONS" && r.Header.Get("Access-Control-Request-Method") != "" {
-				preflightHandler(w, r)
-				return
-			}
-		}
-		h.ServeHTTP(w, r)
-	})
-}
-
-func preflightHandler(w http.ResponseWriter, r *http.Request) {
-	headers := []string{"Content-Type", "Accept", "Authorization"}
-	w.Header().Set("Access-Control-Allow-Headers", strings.Join(headers, ","))
-	methods := []string{"GET", "HEAD", "POST", "PUT", "DELETE"}
-	w.Header().Set("Access-Control-Allow-Methods", strings.Join(methods, ","))
-	glog.Infof("preflight request for %s", r.URL.Path)
-}
-
+// Implement the HTTP service methods
 func (s *Server) Run() error {
 	// Create a listener for gRPC
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", s.grpcPort))
@@ -102,22 +80,23 @@ func (s *Server) Run() error {
 	}()
 
 	// Create a client connection to the gRPC server
-	conn, err := grpc.DialContext(
-		context.Background(),
-		fmt.Sprintf("0.0.0.0:%s", s.grpcPort),
-		grpc.WithInsecure(),
+	ctx := context.Background()
+	conn, err := grpc.NewClient(ctx, fmt.Sprintf("0.0.0.0:%s", s.grpcPort),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to dial server: %v", err)
+		return fmt.Errorf("failed to create gRPC client: %v", err)
 	}
+	defer conn.Close()
 
 	gwmux := runtime.NewServeMux()
-	err = pb.RegisterJobServiceHandlerClient(context.Background(), gwmux, pb.NewJobServiceClient(conn))
+	err = pb.RegisterJobServiceHandlerClient(ctx, gwmux, pb.NewJobServiceClient(conn))
 	if err != nil {
 		return fmt.Errorf("failed to register gateway: %v", err)
 	}
 
-	corsHandler := allowCORS(gwmux)
+	corsHandler := middleware.AllowCORS(gwmux)
 	loggedHandler := middleware.LoggingMiddleware(corsHandler)
 
 	gwServer := &http.Server{
