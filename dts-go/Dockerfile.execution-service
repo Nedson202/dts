@@ -12,6 +12,7 @@ WORKDIR /app
 
 COPY --from=builder /app/execution-service .
 
-ENV EXECUTION_SERVICE_PORT=:50053
+ENV EXECUTION_SERVICE_GRPC_PORT=:50053
+ENV EXECUTION_SERVICE_HTTP_PORT=:8082
 
 CMD ["./execution-service"]

@@ -1,8 +1,7 @@
 import axios from 'axios';
-import { Job, ScheduledJob } from '../types';
+import { Job } from '../types';
 
 const API_URL = 'http://localhost:8080/v1';
-const SCHEDULER_API_URL = 'http://localhost:8081/v1';
 
 interface CreateJobData {
     name: string;
@@ -38,24 +37,6 @@ export const deleteJob = async (jobId: string): Promise<void> => {
     await axios.delete(`${API_URL}/jobs/${jobId}`);
 };
 
-export const getScheduledJobs = async (): Promise<ScheduledJob[]> => {
-    const response = await axios.get(`${SCHEDULER_API_URL}/scheduler/jobs`);
-    return response.data.jobs;
-};
-
-export const scheduleJob = async (jobId: string, cpu: number, memory: number, storage: number): Promise<ScheduledJob> => {
-    const response = await axios.post(`${SCHEDULER_API_URL}/scheduler/jobs`, { 
-        job_id: jobId, 
-        resources: { cpu, memory, storage } 
-    });
-    return response.data;
-};
-
-export const cancelScheduledJob = async (scheduledJobId: string): Promise<void> => {
-    await axios.delete(`${SCHEDULER_API_URL}/scheduler/jobs/${scheduledJobId}`);
-};
-
-export const getScheduledJobDetails = async (scheduledJobId: string): Promise<ScheduledJob> => {
-    const response = await axios.get(`${SCHEDULER_API_URL}/scheduler/jobs/${scheduledJobId}`);
-    return response.data;
+export const cancelJob = async (jobId: string): Promise<void> => {
+    await axios.post(`${API_URL}/jobs/${jobId}/cancel`);
 };

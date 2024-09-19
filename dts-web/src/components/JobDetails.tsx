@@ -1,19 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Heading, Text, Button, Flex, Card, TextField, Dialog, Grid, Box } from '@radix-ui/themes';
-import { getJobDetails, deleteJob, scheduleJob, cancelScheduledJob, updateJob } from '../services/jobService';
+import { Heading, Text, Button, Flex, Card, Grid, Box } from '@radix-ui/themes';
+import { getJobDetails, deleteJob, updateJob, cancelJob } from '../services/jobService';
 import { JobEditDialog } from './JobEditDialog';
-import ScheduledJobsList from './ScheduledJobsList';
-import { Job } from '../types';
+import ExecutionHistoryList from './ExecutionHistoryList';
+import { Job, JobEdit } from '../types';
 import { format } from 'date-fns';
 
 const JobDetails: React.FC = () => {
     const [job, setJob] = useState<Job | null>(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-    const [showScheduleDialog, setShowScheduleDialog] = useState(false);
-    const [cpu, setCpu] = useState(1);
-    const [memory, setMemory] = useState(1);
-    const [storage, setStorage] = useState(1);
 
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
@@ -50,11 +46,10 @@ const JobDetails: React.FC = () => {
         setIsEditDialogOpen(true);
     };
 
-    const handleSaveJob = async (updatedJob: Job) => {
-        if (id) {
+    const handleSaveEditJob = async (updatedJob: JobEdit) => {
+        if (id && job) {
             try {
                 await updateJob(id, updatedJob);
-                setJob(updatedJob);
                 setIsEditDialogOpen(false);
                 fetchJobDetails(); // Refresh job details after update
             } catch (error) {
@@ -64,26 +59,13 @@ const JobDetails: React.FC = () => {
         }
     };
 
-    const handleScheduleJob = async () => {
-        if (id) {
+    const handleCancelJob = async () => {
+        if (job && job.id) {
             try {
-                await scheduleJob(id, cpu, memory, storage);
-                setShowScheduleDialog(false);
-                fetchJobDetails(); // Refresh job details after scheduling
-            } catch (error) {
-                console.error("Failed to schedule job:", error);
-                // Handle error (e.g., show error message to user)
-            }
-        }
-    };
-
-    const handleCancelScheduledJob = async () => {
-        if (id) {
-            try {
-                await cancelScheduledJob(id);
+                await cancelJob(job.id);
                 fetchJobDetails(); // Refresh job details after cancellation
             } catch (error) {
-                console.error("Failed to cancel scheduled job:", error);
+                console.error("Failed to cancel job:", error);
                 // Handle error (e.g., show error message to user)
             }
         }
@@ -100,6 +82,9 @@ const JobDetails: React.FC = () => {
                 <Flex gap="2">
                     <Button onClick={handleEditJob}>Edit</Button>
                     <Button color="red" onClick={handleDelete}>Delete</Button>
+                    <Button color="yellow" onClick={handleCancelJob} disabled={job.status === 'COMPLETED' || job.status === 'FAILED' || job.status === 'CANCELLED'}>
+                        Cancel
+                    </Button>
                 </Flex>
             </Flex>
             <Grid columns="2" gap="4">
@@ -128,79 +113,22 @@ const JobDetails: React.FC = () => {
                         <Text weight="bold">Updated At:</Text>
                         <Text>{format(new Date(job.updatedAt), 'yyyy-MM-dd HH:mm:ss')}</Text>
                         <Text weight="bold">Last Run:</Text>
-                        <Text>{job.lastRun ? format(new Date(job.lastRun), 'yyyy-MM-dd HH:mm:ss') : 'N/A'}</Text>
+                        <Text>{job.lastRun ? format(new Date(job.lastRun), 'yyyy-MM-dd HH:mm:ss') : 'Never'}</Text>
                         <Text weight="bold">Next Run:</Text>
                         <Text>{job.nextRun ? format(new Date(job.nextRun), 'yyyy-MM-dd HH:mm:ss') : 'N/A'}</Text>
                     </Grid>
                 </Card>
             </Grid>
             <Box my="6">
-                <Flex justify="between" align="center" mb="4">
-                    <Heading size="4">Scheduled Runs</Heading>
-                    <Button onClick={() => setShowScheduleDialog(true)}>Schedule New Run</Button>
-                </Flex>
-                <ScheduledJobsList job={job} />
+                <ExecutionHistoryList job={job} />
             </Box>
 
             <JobEditDialog
                 isOpen={isEditDialogOpen}
                 onClose={() => setIsEditDialogOpen(false)}
                 job={job}
-                onSave={handleSaveJob}
+                onSave={handleSaveEditJob}
             />
-
-            <Dialog.Root open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
-                <Dialog.Content style={{ maxWidth: 450 }}>
-                    <Dialog.Title>Schedule Job</Dialog.Title>
-                    <Dialog.Description size="2" mb="4">
-                        Set resource requirements for the job.
-                    </Dialog.Description>
-
-                    <Flex direction="column" gap="3">
-                        <label>
-                            <Text as="div" size="2" mb="1" weight="bold">
-                                CPU
-                            </Text>
-                            <TextField.Input
-                                value={cpu}
-                                onChange={(e) => setCpu(Number(e.target.value))}
-                                type="number"
-                            />
-                        </label>
-                        <label>
-                            <Text as="div" size="2" mb="1" weight="bold">
-                                Memory
-                            </Text>
-                            <TextField.Input
-                                value={memory}
-                                onChange={(e) => setMemory(Number(e.target.value))}
-                                type="number"
-                            />
-                        </label>
-                        <label>
-                            <Text as="div" size="2" mb="1" weight="bold">
-                                Storage
-                            </Text>
-                            <TextField.Input
-                                value={storage}
-                                onChange={(e) => setStorage(Number(e.target.value))}
-                                type="number"
-                            />
-                        </label>
-                    </Flex>
-
-                    <Flex gap="3" mt="4" justify="end">
-                        <Dialog.Close>
-                            <Button variant="soft" color="gray">
-                                Cancel
-                            </Button>
-                        </Dialog.Close>
-                        <Dialog.Close>
-                            <Button onClick={handleScheduleJob}>Schedule</Button>
-                        </Dialog.Close>
-                    </Flex>
-                </Dialog.Content>
-            </Dialog.Root>
         </Box>
     );
 };

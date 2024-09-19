@@ -182,6 +182,36 @@
           "JobService"
         ]
       }
+    },
+    "/v1/jobs/{id}/cancel": {
+      "post": {
+        "operationId": "JobService_CancelJob",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/jobv1CancelJobResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "JobService"
+        ]
+      }
     }
   },
   "definitions": {
@@ -217,6 +247,21 @@
         "timeout": {
           "type": "integer",
           "format": "int32"
+        },
+        "lastRun": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "jobv1CancelJobResponse": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "message": {
+          "type": "string"
         }
       }
     },
@@ -326,7 +371,7 @@
           "type": "string",
           "format": "date-time"
         },
-        "lastRun": {
+        "nextRun": {
           "type": "string",
           "format": "date-time"
         },
@@ -347,23 +392,27 @@
         "timeout": {
           "type": "integer",
           "format": "int32"
+        },
+        "lastRun": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },
     "v1JobStatus": {
       "type": "string",
       "enum": [
-        "JOB_STATUS_UNSPECIFIED",
-        "JOB_STATUS_PENDING",
-        "JOB_STATUS_SCHEDULED",
-        "JOB_STATUS_RUNNING",
-        "JOB_STATUS_COMPLETED",
-        "JOB_STATUS_FAILED",
-        "JOB_STATUS_PAUSED",
-        "JOB_STATUS_CANCELLED",
-        "JOB_STATUS_RETRYING"
+        "UNSPECIFIED",
+        "PENDING",
+        "SCHEDULED",
+        "RUNNING",
+        "COMPLETED",
+        "FAILED",
+        "PAUSED",
+        "CANCELLED",
+        "RETRYING"
       ],
-      "default": "JOB_STATUS_UNSPECIFIED"
+      "default": "UNSPECIFIED"
     },
     "v1ListJobsResponse": {
       "type": "object",

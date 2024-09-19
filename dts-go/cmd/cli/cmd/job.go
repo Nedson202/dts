@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 
+	"github.com/nedson202/dts-go/pkg/logger"
 	jobv1 "github.com/nedson202/dts-go/proto/job/v1"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -30,13 +30,13 @@ var createJobCmd = &cobra.Command{
 		metadataMap := make(map[string]string)
 		if metadata != "" {
 			if err := json.Unmarshal([]byte(metadata), &metadataMap); err != nil {
-				log.Fatalf("Failed to parse metadata: %v", err)
+				logger.Fatal().Err(err).Msg("Failed to parse metadata")
 			}
 		}
 
 		conn, err := grpc.Dial("localhost:50054", grpc.WithInsecure())
 		if err != nil {
-			log.Fatalf("Failed to connect: %v", err)
+			logger.Fatal().Err(err).Msg("Failed to connect")
 		}
 		defer conn.Close()
 
@@ -50,7 +50,7 @@ var createJobCmd = &cobra.Command{
 		})
 
 		if err != nil {
-			log.Fatalf("Failed to create job: %v", err)
+			logger.Fatal().Err(err).Msg("Failed to create job")
 		}
 
 		fmt.Printf("Job created with ID: %s\n", resp.JobId)
@@ -65,7 +65,7 @@ var getJobCmd = &cobra.Command{
 
 		conn, err := grpc.Dial("localhost:50054", grpc.WithInsecure())
 		if err != nil {
-			log.Fatalf("Failed to connect: %v", err)
+			logger.Fatal().Err(err).Msg("Failed to connect")
 		}
 		defer conn.Close()
 
@@ -76,7 +76,7 @@ var getJobCmd = &cobra.Command{
 		})
 
 		if err != nil {
-			log.Fatalf("Failed to get job: %v", err)
+			logger.Fatal().Err(err).Msg("Failed to get job")
 		}
 
 		printJobResponse(resp)
@@ -96,7 +96,7 @@ var listJobsCmd = &cobra.Command{
 
 		conn, err := grpc.Dial("localhost:50054", grpc.WithInsecure())
 		if err != nil {
-			log.Fatalf("Failed to connect: %v", err)
+			logger.Fatal().Err(err).Msg("Failed to connect")
 		}
 		defer conn.Close()
 
@@ -109,7 +109,7 @@ var listJobsCmd = &cobra.Command{
 		})
 
 		if err != nil {
-			log.Fatalf("Failed to list jobs: %v", err)
+			logger.Fatal().Err(err).Msg("Failed to list jobs")
 		}
 
 		fmt.Printf("Total jobs: %d\n", resp.Total)
@@ -135,13 +135,13 @@ var updateJobCmd = &cobra.Command{
 		metadataMap := make(map[string]string)
 		if metadata != "" {
 			if err := json.Unmarshal([]byte(metadata), &metadataMap); err != nil {
-				log.Fatalf("Failed to parse metadata: %v", err)
+				logger.Fatal().Err(err).Msg("Failed to parse metadata")
 			}
 		}
 
 		conn, err := grpc.Dial("localhost:50054", grpc.WithInsecure())
 		if err != nil {
-			log.Fatalf("Failed to connect: %v", err)
+			logger.Fatal().Err(err).Msg("Failed to connect")
 		}
 		defer conn.Close()
 
@@ -157,7 +157,7 @@ var updateJobCmd = &cobra.Command{
 		})
 
 		if err != nil {
-			log.Fatalf("Failed to update job: %v", err)
+			logger.Fatal().Err(err).Msg("Failed to update job")
 		}
 
 		printJobResponse(resp)
@@ -172,7 +172,7 @@ var deleteJobCmd = &cobra.Command{
 
 		conn, err := grpc.Dial("localhost:50054", grpc.WithInsecure())
 		if err != nil {
-			log.Fatalf("Failed to connect: %v", err)
+			logger.Fatal().Err(err).Msg("Failed to connect")
 		}
 		defer conn.Close()
 
@@ -183,7 +183,7 @@ var deleteJobCmd = &cobra.Command{
 		})
 
 		if err != nil {
-			log.Fatalf("Failed to delete job: %v", err)
+			logger.Fatal().Err(err).Msg("Failed to delete job")
 		}
 
 		fmt.Printf("Job deleted: %v\n", resp.Success)
@@ -225,7 +225,7 @@ func printJobResponse(j *jobv1.JobResponse) {
 	}
 	jsonBytes, err := m.Marshal(j)
 	if err != nil {
-		log.Fatalf("Failed to marshal job to JSON: %v", err)
+		logger.Fatal().Err(err).Msg("Failed to marshal job to JSON")
 	}
 	fmt.Println(string(jsonBytes))
 }

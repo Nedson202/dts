@@ -1,13 +1,13 @@
 package models
 
 import (
-	"log"
 	"time"
 
 	"github.com/gocql/gocql"
 	"github.com/nedson202/dts-go/pkg/database"
+	"github.com/nedson202/dts-go/pkg/logger"
+	"github.com/nedson202/dts-go/pkg/utils"
 	pb "github.com/nedson202/dts-go/proto/job/v1"
-	"github.com/robfig/cron/v3"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -19,23 +19,29 @@ type Job struct {
 	Status         string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
-	LastRun        time.Time
+	LastRun        *time.Time
 	Metadata       map[string]string
 	NextRun        time.Time
 }
 
 func (j *Job) ToProto() *pb.JobResponse {
-	return &pb.JobResponse{
+	resp := &pb.JobResponse{
 		Id:             j.ID.String(),
 		Name:           j.Name,
 		Description:    j.Description,
 		CronExpression: j.CronExpression,
-		Status:         pb.JobStatus(pb.JobStatus_value[j.Status]), // Convert string to enum
+		Status:         pb.JobStatus(pb.JobStatus_value[j.Status]),
 		CreatedAt:      timestamppb.New(j.CreatedAt),
 		UpdatedAt:      timestamppb.New(j.UpdatedAt),
-		 LastRun:        timestamppb.New(j.LastRun),
+		NextRun:        timestamppb.New(j.NextRun),
 		Metadata:       j.Metadata,
 	}
+
+	if j.LastRun != nil {
+		resp.LastRun = timestamppb.New(*j.LastRun)
+	}
+
+	return resp
 }
 
 func JobFromProto(pbJob *pb.JobResponse) (*Job, error) {
@@ -44,24 +50,36 @@ func JobFromProto(pbJob *pb.JobResponse) (*Job, error) {
 		return nil, err
 	}
 
-	return &Job{
+	job := &Job{
 		ID:             id,
 		Name:           pbJob.Name,
 		Description:    pbJob.Description,
 		CronExpression: pbJob.CronExpression,
-		Status:         pbJob.Status.String(), // Convert enum to string
+		Status:         pbJob.Status.String(),
 		CreatedAt:      pbJob.CreatedAt.AsTime(),
 		UpdatedAt:      pbJob.UpdatedAt.AsTime(),
-		 LastRun:        pbJob.LastRun.AsTime(),
+		NextRun:        pbJob.NextRun.AsTime(),
 		Metadata:       pbJob.Metadata,
-	}, nil
+	}
+
+	if pbJob.LastRun != nil {
+		lastRun := pbJob.LastRun.AsTime()
+		job.LastRun = &lastRun
+	}
+
+	return job, nil
 }
 
 func CreateJob(cassandraClient *database.CassandraClient, job *Job) error {
-	if job.Status == pb.JobStatus_JOB_STATUS_UNSPECIFIED.String() {
-		job.Status = pb.JobStatus_JOB_STATUS_PENDING.String()
+	if job.Status == pb.JobStatus_UNSPECIFIED.String() {
+		job.Status = pb.JobStatus_PENDING.String()
 	}
-	job.NextRun = calculateNextRun(job.CronExpression, time.Now())
+	nextRun, err := utils.CalculateNextRun(job.CronExpression, time.Now())
+	if err != nil {
+		logger.Error().Err(err).Msgf("Error calculating next run time for job %s", job.ID)
+		return err
+	}
+	job.NextRun = nextRun
 	return cassandraClient.Session.Query(
 		"INSERT INTO jobs (id, name, description, cron_expression, status_text, created_at, updated_at, last_run, next_run, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		job.ID, job.Name, job.Description, job.CronExpression, job.Status, job.CreatedAt, job.UpdatedAt, job.LastRun, job.NextRun, job.Metadata,
@@ -70,12 +88,16 @@ func CreateJob(cassandraClient *database.CassandraClient, job *Job) error {
 
 func GetJob(cassandraClient *database.CassandraClient, id gocql.UUID) (*Job, error) {
 	var job Job
+	var lastRun time.Time
 	err := cassandraClient.Session.Query(
 		"SELECT id, name, description, cron_expression, status_text, created_at, updated_at, last_run, next_run, metadata FROM jobs WHERE id = ?",
 		id,
-	).Scan(&job.ID, &job.Name, &job.Description, &job.CronExpression, &job.Status, &job.CreatedAt, &job.UpdatedAt, &job.LastRun, &job.NextRun, &job.Metadata)
+	).Scan(&job.ID, &job.Name, &job.Description, &job.CronExpression, &job.Status, &job.CreatedAt, &job.UpdatedAt, &lastRun, &job.NextRun, &job.Metadata)
 	if err != nil {
 		return nil, err
+	}
+	if !lastRun.IsZero() {
+		job.LastRun = &lastRun
 	}
 	return &job, nil
 }
@@ -107,11 +129,13 @@ func ListJobs(cassandraClient *database.CassandraClient, pageSize int, lastID go
 	iter := cassandraClient.Session.Query(query, args...).Iter()
 	for {
 		var job Job
-		var statusStr string
-		if !iter.Scan(&job.ID, &job.Name, &job.Description, &job.CronExpression, &statusStr, &job.CreatedAt, &job.UpdatedAt, &job.LastRun, &job.NextRun, &job.Metadata) {
+		var lastRun time.Time
+		if !iter.Scan(&job.ID, &job.Name, &job.Description, &job.CronExpression, &job.Status, &job.CreatedAt, &job.UpdatedAt, &lastRun, &job.NextRun, &job.Metadata) {
 			break
 		}
-		job.Status = statusStr
+		if !lastRun.IsZero() {
+			job.LastRun = &lastRun
+		}
 		jobs = append(jobs, &job)
 	}
 
@@ -119,7 +143,11 @@ func ListJobs(cassandraClient *database.CassandraClient, pageSize int, lastID go
 }
 
 func UpdateJob(cassandraClient *database.CassandraClient, job *Job) error {
-	job.NextRun = calculateNextRun(job.CronExpression, time.Now())
+	nextRun, err := utils.CalculateNextRun(job.CronExpression, time.Now())
+	if err != nil {
+		return err
+	}
+	job.NextRun = nextRun
 	return cassandraClient.Session.Query(
 		"UPDATE jobs SET name = ?, description = ?, cron_expression = ?, status_text = ?, updated_at = ?, last_run = ?, next_run = ?, metadata = ? WHERE id = ?",
 		job.Name, job.Description, job.CronExpression, job.Status, job.UpdatedAt, job.LastRun, job.NextRun, job.Metadata, job.ID,
@@ -130,9 +158,10 @@ func DeleteJob(cassandraClient *database.CassandraClient, id gocql.UUID) error {
 	return cassandraClient.Session.Query("DELETE FROM jobs WHERE id = ?", id).Exec()
 }
 
-func GetPendingJobs(client *database.CassandraClient, limit int) ([]*Job, error) {
-	query := "SELECT id, name, description, cron_expression, status_text, created_at, updated_at, last_run, next_run, metadata FROM jobs WHERE status_text = ? AND next_run <= ? LIMIT ? ALLOW FILTERING"
-	iter := client.Session.Query(query, pb.JobStatus_JOB_STATUS_PENDING.String(), time.Now(), limit).Iter()
+func GetJobsDueForExecution(client *database.CassandraClient, limit int) ([]*Job, error) {
+	now := time.Now().Truncate(time.Minute)
+	query := "SELECT id, name, description, cron_expression, status_text, created_at, updated_at, last_run, next_run, metadata FROM jobs WHERE next_run = ? LIMIT ? ALLOW FILTERING"
+	iter := client.Session.Query(query, now, limit).Iter()
 	var jobs []*Job
 	var job Job
 	for iter.Scan(&job.ID, &job.Name, &job.Description, &job.CronExpression, &job.Status, &job.CreatedAt, &job.UpdatedAt, &job.LastRun, &job.NextRun, &job.Metadata) {
@@ -147,13 +176,4 @@ func GetPendingJobs(client *database.CassandraClient, limit int) ([]*Job, error)
 func UpdateJobLastRun(client *database.CassandraClient, jobID gocql.UUID, lastRun time.Time) error {
 	query := "UPDATE jobs SET last_run = ? WHERE id = ?"
 	return client.Session.Query(query, lastRun, jobID).Exec()
-}
-
-func calculateNextRun(cronExpression string, from time.Time) time.Time {
-	schedule, err := cron.ParseStandard(cronExpression)
-	if err != nil {
-		log.Printf("Error parsing cron expression: %v", err)
-		return time.Time{}
-	}
-	return schedule.Next(from)
 }

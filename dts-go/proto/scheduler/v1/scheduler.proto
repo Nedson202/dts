@@ -5,7 +5,7 @@ package scheduler.v1;
 import "proto/job/v1/job.proto";
 import "google/api/annotations.proto";
 
-option go_package = "github.com/nedson202/dts-go/pkg/scheduler/v1;schedulerv1";
+option go_package = "github.com/nedson202/dts-go/proto/scheduler/v1;schedulerv1";
 
 service SchedulerService {
   rpc ScheduleJob(ScheduleJobRequest) returns (ScheduleJobResponse) {

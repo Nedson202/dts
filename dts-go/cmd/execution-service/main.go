@@ -1,50 +1,68 @@
 package main
 
 import (
-	"log"
-	"net"
+	"context"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/nedson202/dts-go/internal/execution"
 	"github.com/nedson202/dts-go/pkg/config"
 	"github.com/nedson202/dts-go/pkg/database"
-	pb "github.com/nedson202/dts-go/proto/execution/v1"
-	"github.com/nedson202/dts-go/pkg/queue"
-	"google.golang.org/grpc"
+	"github.com/nedson202/dts-go/pkg/logger"
+	executionServer "github.com/nedson202/dts-go/pkg/services/execution"
 )
 
 func main() {
-	cfg := config.LoadConfig()
+	logger.Init()
+
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to load config")
+	}
 
 	cassandraClient, err := database.NewCassandraClient(cfg.CassandraHosts, cfg.CassandraKeyspace)
 	if err != nil {
-		log.Fatalf("Failed to create Cassandra client: %v", err)
+		logger.Fatal().Err(err).Msg("Failed to create Cassandra client")
 	}
 	defer cassandraClient.Close()
 
-	kafkaClient, err := queue.NewKafkaClient(cfg.GetKafkaBrokers(), cfg.ExecutionTopic)
+	executionService := execution.NewService(cassandraClient)
+
+	// Create and run server
+	server := executionServer.NewServer(executionService, cfg.ExecutionServiceGRPCPort, cfg.ExecutionServiceHTTPPort)
+
+	// Start Kafka consumer
+	kafkaConsumer, err := execution.NewKafkaConsumer(cfg.KafkaBrokers, "execution-group", cassandraClient, cfg.JobServiceAddr)
 	if err != nil {
-		log.Fatalf("Failed to create Kafka client: %v", err)
-	}
-	defer kafkaClient.Close()
-
-	executionService := execution.NewService(cassandraClient, kafkaClient)
-
-	port := os.Getenv("EXECUTION_SERVICE_PORT")
-	if port == "" {
-		port = ":50053"
+		logger.Fatal().Err(err).Msg("Failed to create Kafka consumer")
 	}
 
-	lis, err := net.Listen("tcp", port)
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	s := grpc.NewServer()
-	pb.RegisterExecutionServiceServer(s, executionService)
+	// Start the consumer in a new goroutine
+	go func() {
+		if err := kafkaConsumer.Consume(ctx, []string{cfg.TaskTopic}); err != nil {
+			logger.Fatal().Err(err).Msg("Error from consumer")
+		}
+	}()
 
-	log.Printf("Execution service listening at %v", lis.Addr())
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
+	// Start the server in a new goroutine
+	go func() {
+		if err := server.Run(); err != nil {
+			logger.Fatal().Err(err).Msg("Failed to run server")
+		}
+	}()
+
+	// Wait for interrupt signal to gracefully shutdown the server with a timeout of 5 seconds.
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	logger.Info().Msg("Shutting down server...")
+
+	// Cancel the context to stop the Kafka consumer
+	cancel()
+
+	logger.Info().Msg("Server exiting")
 }

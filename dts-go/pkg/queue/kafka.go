@@ -2,8 +2,8 @@ package queue
 
 import (
 	"context"
-	"log"
 
+	"github.com/nedson202/dts-go/pkg/logger"
 	"github.com/segmentio/kafka-go"
 )
 
@@ -13,7 +13,7 @@ type KafkaClient struct {
 }
 
 func NewKafkaClient(brokers []string, topic string) (*KafkaClient, error) {
-	log.Printf("Initializing Kafka client with brokers: %v and topic: %s", brokers, topic)
+	logger.Info().Msgf("Initializing Kafka client with brokers: %v and topic: %s", brokers, topic)
 	writer := kafka.NewWriter(kafka.WriterConfig{
 		Brokers: brokers,
 		Topic:   topic,
@@ -29,13 +29,13 @@ func (c *KafkaClient) Close() error {
 }
 
 func (c *KafkaClient) PublishMessage(ctx context.Context, key, value []byte) error {
-	log.Printf("Publishing message to Kafka. Key: %s", string(key))
+	logger.Info().Msgf("Publishing message to Kafka. Key: %s", string(key))
 	err := c.Writer.WriteMessages(ctx, kafka.Message{
 		Key:   key,
 		Value: value,
 	})
 	if err != nil {
-		log.Printf("Error publishing message to Kafka: %v", err)
+		logger.Error().Err(err).Msg("Error publishing message to Kafka")
 		return err
 	}
 	return nil
@@ -44,6 +44,7 @@ func (c *KafkaClient) PublishMessage(ctx context.Context, key, value []byte) err
 func (c *KafkaClient) ConsumeMessage(ctx context.Context) ([]byte, error) {
 	msg, err := c.Reader.ReadMessage(ctx)
 	if err != nil {
+		logger.Error().Err(err).Msg("Error consuming message from Kafka")
 		return nil, err
 	}
 	return msg.Value, nil

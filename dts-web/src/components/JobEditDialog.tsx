@@ -1,20 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, Button, Flex, TextField, Text } from '@radix-ui/themes';
-import { Job } from '../types';
+import { JobEdit } from '../types';
 
 interface JobEditDialogProps {
     isOpen: boolean;
     onClose: () => void;
-    job: Job | null;
-    onSave: (updatedJob: Job) => void;
+    job: JobEdit | null;
+    onSave: (updatedJob: JobEdit) => void;
 }
 
 export const JobEditDialog: React.FC<JobEditDialogProps> = ({ isOpen, onClose, job, onSave }) => {
-    const [editedJob, setEditedJob] = useState<Job | null>(null);
+    const [editedJob, setEditedJob] = useState<JobEdit | null>(null);
 
     useEffect(() => {
+        console.log(job);
         if (job) {
-            setEditedJob({ ...job });
+            setEditedJob({
+                id: job.id,
+                name: job.name,
+                description: job.description,
+                cronExpression: job.cronExpression,
+                metadata: job.metadata,
+                priority: job.priority,
+                maxRetries: job.maxRetries,
+                timeout: job.timeout,
+            });
         }
     }, [job]);
 
@@ -68,7 +78,6 @@ export const JobEditDialog: React.FC<JobEditDialogProps> = ({ isOpen, onClose, j
                             onChange={handleInputChange}
                         />
                     </label>
-                    {/* Add more fields as needed */}
                 </Flex>
                 <Flex gap="3" mt="4" justify="end">
                     <Dialog.Close>

@@ -11,7 +11,7 @@ export interface Job {
     timeout: number;
     metadata: Record<string, string>;
     nextRun: string;
-    lastRun: string;
+    lastRun: string | null;
 }
 
 export interface Resources {
@@ -26,3 +26,15 @@ export interface ScheduledJob {
     resourceRequirements: Resources;
     nextExecutionTime: string;
 }
+
+export interface Execution {
+    id: string;
+    jobId: string;
+    status: string;
+    startTime: string;
+    endTime?: string;
+    result?: string;
+    error?: string;
+}
+
+export type JobEdit = Omit<Job, 'createdAt' | 'updatedAt' | 'lastRun' | 'nextRun' | 'status'>;

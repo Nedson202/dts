@@ -2,28 +2,47 @@ syntax = "proto3";
 
 package execution.v1;
 
-option go_package = "github.com/nedson202/dts-go/pkg/execution/v1;executionv1";
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
 
-import "proto/job/v1/job.proto";
+option go_package = "github.com/nedson202/dts-go/proto/execution/v1;executionv1";
 
 service ExecutionService {
-  rpc ExecuteJob(ExecuteJobRequest) returns (ExecuteJobResponse);
-  rpc GetExecutionStatus(GetExecutionStatusRequest) returns (GetExecutionStatusResponse);
+  rpc GetExecution(GetExecutionRequest) returns (ExecutionResponse) {
+    option (google.api.http) = {
+      get: "/v1/executions/{id}"
+    };
+  }
+  rpc ListExecutions(ListExecutionsRequest) returns (ListExecutionsResponse) {
+    option (google.api.http) = {
+      get: "/v1/executions"
+    };
+  }
 }
 
-message ExecuteJobRequest {
-  job.v1.JobResponse job = 1;
+message ExecutionResponse {
+  string id = 1;
+  string job_id = 2;
+  string status = 3;
+  google.protobuf.Timestamp start_time = 4;
+  google.protobuf.Timestamp end_time = 5 [deprecated = false];
+  string result = 6;
+  string error = 7;
 }
 
-message ExecuteJobResponse {
-  string execution_id = 1;
+message GetExecutionRequest {
+  string id = 1;
 }
 
-message GetExecutionStatusRequest {
-  string execution_id = 1;
+message ListExecutionsRequest {
+  int32 page_size = 1;
+  string job_id = 2;
+  string status = 3;
+  string last_id = 4;
 }
 
-message GetExecutionStatusResponse {
-  string status = 1;
-  string result = 2;
+message ListExecutionsResponse {
+  repeated ExecutionResponse executions = 1;
+  int32 total = 2;
+  string next_page = 3;
 }

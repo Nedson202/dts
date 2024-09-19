@@ -118,7 +118,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/v1CancelJobResponse"
+              "$ref": "#/definitions/schedulerv1CancelJobResponse"
             }
           },
           "default": {
@@ -171,7 +171,7 @@
         }
       }
     },
-    "v1CancelJobResponse": {
+    "schedulerv1CancelJobResponse": {
       "type": "object",
       "properties": {
         "success": {
@@ -219,7 +219,7 @@
           "type": "string",
           "format": "date-time"
         },
-        "lastRun": {
+        "nextRun": {
           "type": "string",
           "format": "date-time"
         },
@@ -240,23 +240,27 @@
         "timeout": {
           "type": "integer",
           "format": "int32"
+        },
+        "lastRun": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },
     "v1JobStatus": {
       "type": "string",
       "enum": [
-        "JOB_STATUS_UNSPECIFIED",
-        "JOB_STATUS_PENDING",
-        "JOB_STATUS_SCHEDULED",
-        "JOB_STATUS_RUNNING",
-        "JOB_STATUS_COMPLETED",
-        "JOB_STATUS_FAILED",
-        "JOB_STATUS_PAUSED",
-        "JOB_STATUS_CANCELLED",
-        "JOB_STATUS_RETRYING"
+        "UNSPECIFIED",
+        "PENDING",
+        "SCHEDULED",
+        "RUNNING",
+        "COMPLETED",
+        "FAILED",
+        "PAUSED",
+        "CANCELLED",
+        "RETRYING"
       ],
-      "default": "JOB_STATUS_UNSPECIFIED"
+      "default": "UNSPECIFIED"
     },
     "v1ListScheduledJobsResponse": {
       "type": "object",

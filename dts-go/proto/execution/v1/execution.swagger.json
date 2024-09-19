@@ -15,7 +15,87 @@
   "produces": [
     "application/json"
   ],
-  "paths": {},
+  "paths": {
+    "/v1/executions": {
+      "get": {
+        "operationId": "ExecutionService_ListExecutions",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListExecutionsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "jobId",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "lastId",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ExecutionService"
+        ]
+      }
+    },
+    "/v1/executions/{id}": {
+      "get": {
+        "operationId": "ExecutionService_GetExecution",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ExecutionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ExecutionService"
+        ]
+      }
+    }
+  },
   "definitions": {
     "protobufAny": {
       "type": "object",
@@ -45,89 +125,52 @@
         }
       }
     },
-    "v1ExecuteJobResponse": {
-      "type": "object",
-      "properties": {
-        "executionId": {
-          "type": "string"
-        }
-      }
-    },
-    "v1GetExecutionStatusResponse": {
-      "type": "object",
-      "properties": {
-        "status": {
-          "type": "string"
-        },
-        "result": {
-          "type": "string"
-        }
-      }
-    },
-    "v1JobResponse": {
+    "v1ExecutionResponse": {
       "type": "object",
       "properties": {
         "id": {
           "type": "string"
         },
-        "name": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        },
-        "cronExpression": {
+        "jobId": {
           "type": "string"
         },
         "status": {
-          "$ref": "#/definitions/v1JobStatus"
+          "type": "string"
         },
-        "createdAt": {
+        "startTime": {
           "type": "string",
           "format": "date-time"
         },
-        "updatedAt": {
+        "endTime": {
           "type": "string",
           "format": "date-time"
         },
-        "lastRun": {
-          "type": "string",
-          "format": "date-time"
+        "result": {
+          "type": "string"
         },
-        "metadata": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "priority": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "maxRetries": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "timeout": {
-          "type": "integer",
-          "format": "int32"
+        "error": {
+          "type": "string"
         }
       }
     },
-    "v1JobStatus": {
-      "type": "string",
-      "enum": [
-        "JOB_STATUS_UNSPECIFIED",
-        "JOB_STATUS_PENDING",
-        "JOB_STATUS_SCHEDULED",
-        "JOB_STATUS_RUNNING",
-        "JOB_STATUS_COMPLETED",
-        "JOB_STATUS_FAILED",
-        "JOB_STATUS_PAUSED",
-        "JOB_STATUS_CANCELLED",
-        "JOB_STATUS_RETRYING"
-      ],
-      "default": "JOB_STATUS_UNSPECIFIED"
+    "v1ListExecutionsResponse": {
+      "type": "object",
+      "properties": {
+        "executions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1ExecutionResponse"
+          }
+        },
+        "total": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "nextPage": {
+          "type": "string"
+        }
+      }
     }
   }
 }
