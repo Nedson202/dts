@@ -9,8 +9,8 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.1
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/zerolog v1.31.0
-	github.com/segmentio/kafka-go v0.4.47
 	github.com/spf13/cobra v1.8.1
+	github.com/twmb/franz-go v1.17.1
 	google.golang.org/genproto/googleapis/api v0.0.0-20240814211410-ddb44dafa142
 	google.golang.org/grpc v1.66.1
 	google.golang.org/protobuf v1.34.2
@@ -41,6 +41,7 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/twmb/franz-go/pkg/kmsg v1.8.0 // indirect
 	golang.org/x/crypto v0.26.0 // indirect
 	golang.org/x/net v0.28.0 // indirect
 	golang.org/x/sys v0.23.0 // indirect

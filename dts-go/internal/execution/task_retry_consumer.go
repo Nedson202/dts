@@ -7,14 +7,14 @@ import (
 	"github.com/nedson202/dts-go/pkg/queue"
 )
 
-var _ TaskProcessor = (*TaskConsumer)(nil)
+var _ TaskProcessor = (*TaskRetryConsumer)(nil)
 
-type TaskConsumer struct {
+type TaskRetryConsumer struct {
 	kafkaClient *queue.KafkaClient
 	executor    *TaskExecutor
 }
 
-type TaskConsumerArgs struct {
+type TaskRetryConsumerArgs struct {
 	CassandraClient *database.CassandraClient
 	Brokers         []string
 	GroupID         string
@@ -22,25 +22,25 @@ type TaskConsumerArgs struct {
 	Topic           string
 }
 
-func NewTaskConsumer(args TaskConsumerArgs) (*TaskConsumer, error) {
+func NewTaskRetryConsumer(args TaskRetryConsumerArgs) (*TaskRetryConsumer, error) {
 	kafkaClient, err := queue.NewKafkaClient(args.Brokers, args.GroupID, args.Topic)
 	executor := NewTaskExecutor(args.CassandraClient, args.JobClient, kafkaClient)
 	if err != nil {
 		return nil, err
 	}
 
-	return &TaskConsumer{kafkaClient: kafkaClient, executor: executor}, nil
+	return &TaskRetryConsumer{kafkaClient: kafkaClient, executor: executor}, nil
 }
 
-func (tc *TaskConsumer) Start(topic string) error {
-	logger.Info().Msgf("Starting TaskConsumer for topic: %s", topic)
+func (tc *TaskRetryConsumer) Start(topic string) error {
+	logger.Info().Msgf("Starting TaskRetryConsumer for topic: %s", topic)
 	if err := tc.kafkaClient.Consume(); err != nil {
 		return err
 	}
 
 	go func() {
 		for message := range tc.kafkaClient.Messages() {
-			if err := tc.executor.executeTask(message); err != nil {
+			if err := tc.executor.executeRetryTask(message); err != nil {
 				logger.Error().Msgf("Error executing task: %v", err)
 			}
 		}
@@ -49,7 +49,7 @@ func (tc *TaskConsumer) Start(topic string) error {
 	return nil
 }
 
-func (tc *TaskConsumer) Stop() error {
-	logger.Info().Msgf("Stopping TaskConsumer")
+func (tc *TaskRetryConsumer) Stop() error {
+	logger.Info().Msgf("Stopping TaskRetryConsumer")
 	return tc.kafkaClient.Close()
 }

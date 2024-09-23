@@ -55,7 +55,6 @@ The system uses Apache Kafka for message queuing and Apache Cassandra for persis
    EXECUTION_SERVICE_HTTP_PORT=8082
    CASSANDRA_DATA_RETENTION_DAYS=30
    KAFKA_TASK_TOPIC=jobs
-   KAFKA_SCHEDULER_TOPIC=scheduled-jobs
    KAFKA_EXECUTION_TOPIC=job-executions
    ```
 

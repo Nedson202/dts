@@ -18,10 +18,11 @@ type Server struct {
 
 func NewServer(cassandraClient *database.CassandraClient, kafkaClient *queue.KafkaClient, checkInterval time.Duration) (*Server, error) {
 	queueManager := scheduler.NewQueueManager(kafkaClient)
-	scheduler, err := scheduler.NewScheduler(cassandraClient, kafkaClient, checkInterval, queueManager)
+	scheduler, err := scheduler.NewScheduler(cassandraClient, checkInterval, queueManager)
 	if err != nil {
 		return nil, err
 	}
+
 	return &Server{
 		cassandraClient: cassandraClient,
 		kafkaClient:     kafkaClient,
@@ -35,7 +36,5 @@ func (s *Server) Run(ctx context.Context) error {
 	// Start the scheduler
 	go s.scheduler.Start(ctx)
 
-	// Run the main scheduling loop
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
+	return nil
 }

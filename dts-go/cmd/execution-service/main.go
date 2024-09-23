@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/nedson202/dts-go/internal/execution"
+	"github.com/nedson202/dts-go/pkg/client"
 	"github.com/nedson202/dts-go/pkg/config"
 	"github.com/nedson202/dts-go/pkg/database"
 	"github.com/nedson202/dts-go/pkg/logger"
@@ -27,23 +28,28 @@ func main() {
 	}
 	defer cassandraClient.Close()
 
-	executionService, err := execution.NewService(cassandraClient, cfg.KafkaBrokers, "execution-group", cfg.JobServiceAddr)
+	jobClient, err := client.NewJobClient(cfg.JobServiceAddr)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to create job client")
+	}
+
+
+	service, err := execution.NewService(execution.ServiceConfig{
+		CassandraClient: cassandraClient,
+		JobClient:       jobClient,
+		Brokers:         cfg.KafkaBrokers,
+	})
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to create execution service")
 	}
 
+	// Start the task manager
+	if err := service.StartTaskManager(context.Background()); err != nil {
+		logger.Fatal().Err(err).Msg("Failed to start task manager")
+	}
+
 	// Create and run server
-	server := executionServer.NewServer(executionService, cfg.ExecutionServiceGRPCPort, cfg.ExecutionServiceHTTPPort)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Start the TaskConsumer
-	go func() {
-		if err := executionService.StartTaskConsumer(ctx); err != nil {
-			logger.Fatal().Err(err).Msg("Error from TaskConsumer")
-		}
-	}()
+	server := executionServer.NewServer(service, cfg.ExecutionServiceGRPCPort, cfg.ExecutionServiceHTTPPort)
 
 	// Start the server in a new goroutine
 	go func() {
@@ -58,12 +64,9 @@ func main() {
 	<-quit
 	logger.Info().Msg("Shutting down server...")
 
-	// Cancel the context to stop the TaskConsumer
-	cancel()
-
-	// Stop the TaskConsumer
-	if err := executionService.StopTaskConsumer(); err != nil {
-		logger.Error().Err(err).Msg("Error stopping TaskConsumer")
+	// Stop the task manager
+	if err := service.StopTaskManager(); err != nil {
+		logger.Error().Err(err).Msg("Error stopping task manager")
 	}
 
 	logger.Info().Msg("Server exiting")

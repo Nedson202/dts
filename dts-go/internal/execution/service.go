@@ -2,8 +2,10 @@ package execution
 
 import (
 	"context"
+	"time"
 
 	"github.com/gocql/gocql"
+	"github.com/nedson202/dts-go/pkg/client"
 	"github.com/nedson202/dts-go/pkg/config"
 	"github.com/nedson202/dts-go/pkg/database"
 	"github.com/nedson202/dts-go/pkg/logger"
@@ -16,18 +18,48 @@ import (
 type Service struct {
 	pb.UnimplementedExecutionServiceServer
 	cassandraClient *database.CassandraClient
-	taskConsumer    *TaskConsumer
+	taskManager     *TaskManager
 }
 
-func NewService(cassandraClient *database.CassandraClient, brokers []string, groupID string, jobServiceAddr string) (*Service, error) {
-	taskConsumer, err := NewTaskConsumer(cassandraClient, brokers, groupID, jobServiceAddr)
+type ServiceConfig struct {
+	CassandraClient *database.CassandraClient
+	JobClient       *client.JobClient
+	Brokers         []string
+}
+
+func NewService(serviceConfig ServiceConfig) (*Service, error) {
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	taskManager := NewTaskManager()
+
+	// Add regular task processor
+	taskManager.AddTaskProcessor(TaskProcessorArgs{
+		Topic:            cfg.TaskTopic,
+		CassandraClient: serviceConfig.CassandraClient,
+		Brokers:         serviceConfig.Brokers,
+		GroupID:         "task_execution_group",
+		JobClient:       serviceConfig.JobClient,
+	})
+
+	// Add retry task processor
+	err = taskManager.AddTaskRetryProcessor(TaskProcessorArgs{
+		Topic:            cfg.TaskRetryTopic,
+		CassandraClient: serviceConfig.CassandraClient,
+		Brokers:          serviceConfig.Brokers,
+		GroupID:          "task_retry_execution_group",
+		JobClient:        serviceConfig.JobClient,
+	})
+
 	if err != nil {
 		return nil, err
 	}
 
 	return &Service{
-		cassandraClient: cassandraClient,
-		taskConsumer:    taskConsumer,
+		cassandraClient: serviceConfig.CassandraClient,
+		taskManager:     taskManager,
 	}, nil
 }
 
@@ -87,16 +119,17 @@ func (s *Service) ListExecutions(ctx context.Context, req *pb.ListExecutionsRequ
 	}, nil
 }
 
-func (s *Service) StartTaskConsumer(ctx context.Context) error {
-	logger.Info().Msg("Starting TaskConsumer")
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to load config")
-	}
-	return s.taskConsumer.Start(ctx, cfg.TaskTopic)
+func (s *Service) StartTaskManager(ctx context.Context) error {
+	return s.taskManager.StartTaskManager(ctx)
 }
 
-func (s *Service) StopTaskConsumer() error {
-	logger.Info().Msg("Stopping TaskConsumer")
-	return s.taskConsumer.Stop()
+func (s *Service) StopTaskManager() error {
+	return s.taskManager.StopTaskManager()
+}
+
+type ScheduledJob struct {
+	IdempotencyKey string    `json:"IdempotencyKey"`
+	JobID          string    `json:"JobID"`
+	StartTime      time.Time `json:"StartTime"`
+	RetryCount     int       `json:"RetryCount"`
 }

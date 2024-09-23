@@ -6,25 +6,22 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
+	"github.com/nedson202/dts-go/pkg/client"
 	"github.com/nedson202/dts-go/pkg/config"
 	"github.com/nedson202/dts-go/pkg/database"
 	"github.com/nedson202/dts-go/pkg/logger"
 	"github.com/nedson202/dts-go/pkg/models"
-	"github.com/nedson202/dts-go/pkg/queue"
 	jobpb "github.com/nedson202/dts-go/proto/job/v1"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/backoff"
 )
 
 type Scheduler struct {
 	cassandraClient *database.CassandraClient
-	kafkaClient     *queue.KafkaClient
 	checkInterval   time.Duration
 	queueManager    *QueueManager
-	jobClient       jobpb.JobServiceClient
+	jobClient       *client.JobClient
 }
 
-func NewScheduler(cassandraClient *database.CassandraClient, kafkaClient *queue.KafkaClient, checkInterval time.Duration, queueManager *QueueManager) (*Scheduler, error) {
+func NewScheduler(cassandraClient *database.CassandraClient, checkInterval time.Duration, queueManager *QueueManager) (*Scheduler, error) {
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
@@ -35,46 +32,18 @@ func NewScheduler(cassandraClient *database.CassandraClient, kafkaClient *queue.
 		return nil, fmt.Errorf("job service address is not set")
 	}
 
-	logger.Info().Msgf("Attempting to connect to job service at %s", jobServiceAddr)
+	jobClient, err := client.NewJobClient(jobServiceAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create job client: %w", err)
+	}
 
 	// Create a scheduler without the job client first
 	scheduler := &Scheduler{
 		cassandraClient: cassandraClient,
-		kafkaClient:     kafkaClient,
 		checkInterval:   checkInterval,
 		queueManager:    queueManager,
+		jobClient:       jobClient,
 	}
-
-	// Attempt to connect to the job service in a separate goroutine
-	go func() {
-		for {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			conn, err := grpc.DialContext(ctx, jobServiceAddr,
-				grpc.WithInsecure(),
-				grpc.WithBlock(),
-				grpc.WithConnectParams(grpc.ConnectParams{
-					Backoff: backoff.Config{
-						BaseDelay:  100 * time.Millisecond,
-						Multiplier: 1.6,
-						Jitter:     0.2,
-						MaxDelay:   3 * time.Second,
-					},
-					MinConnectTimeout: 5 * time.Second,
-				}),
-			)
-			cancel()
-
-			if err != nil {
-				logger.Error().Err(err).Msgf("Failed to connect to job service. Retrying in 5 seconds...")
-				time.Sleep(5 * time.Second)
-				continue
-			}
-
-			scheduler.jobClient = jobpb.NewJobServiceClient(conn)
-			logger.Info().Msgf("Successfully connected to job service at %s", jobServiceAddr)
-			break
-		}
-	}()
 
 	logger.Info().Msgf("Initializing Scheduler with check interval: %v", checkInterval)
 	return scheduler, nil
@@ -129,10 +98,7 @@ func (s *Scheduler) ProcessPendingJobs(ctx context.Context) error {
 
 func (s *Scheduler) scheduleJob(ctx context.Context, job *models.Job) error {
 	// Update the job status to SCHEDULED
-	_, err := s.jobClient.UpdateJob(ctx, &jobpb.UpdateJobRequest{
-		Id:     job.ID.String(),
-		Status: jobpb.JobStatus_SCHEDULED,
-	})
+	_, err := s.jobClient.UpdateJob(ctx, job.ID.String(), jobpb.JobStatus_SCHEDULED, time.Time{})
 	if err != nil {
 		logger.Error().Err(err).Msgf("Error updating job %s to SCHEDULED", job.ID)
 		return err
@@ -165,10 +131,7 @@ func (s *Scheduler) scheduleJob(ctx context.Context, job *models.Job) error {
 }
 
 func (s *Scheduler) revertJobStatus(ctx context.Context, jobID string, status jobpb.JobStatus) error {
-	_, err := s.jobClient.UpdateJob(ctx, &jobpb.UpdateJobRequest{
-		Id:     jobID,
-		Status: status,
-	})
+	_, err := s.jobClient.UpdateJob(ctx, jobID, status, time.Time{})
 	return err
 }
 

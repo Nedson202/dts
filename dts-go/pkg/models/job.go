@@ -160,11 +160,14 @@ func DeleteJob(cassandraClient *database.CassandraClient, id gocql.UUID) error {
 
 func GetJobsDueForExecution(client *database.CassandraClient, limit int) ([]*Job, error) {
 	now := time.Now().Truncate(time.Minute)
-	query := "SELECT id, name, description, cron_expression, status_text, created_at, updated_at, last_run, next_run, metadata FROM jobs WHERE next_run = ? LIMIT ? ALLOW FILTERING"
+	query := "SELECT id, name, description, cron_expression, status_text, created_at, updated_at, last_run, next_run, metadata FROM jobs WHERE next_run <= ? LIMIT ? ALLOW FILTERING"
 	iter := client.Session.Query(query, now, limit).Iter()
 	var jobs []*Job
-	var job Job
-	for iter.Scan(&job.ID, &job.Name, &job.Description, &job.CronExpression, &job.Status, &job.CreatedAt, &job.UpdatedAt, &job.LastRun, &job.NextRun, &job.Metadata) {
+	for {
+		var job Job
+		if !iter.Scan(&job.ID, &job.Name, &job.Description, &job.CronExpression, &job.Status, &job.CreatedAt, &job.UpdatedAt, &job.LastRun, &job.NextRun, &job.Metadata) {
+			break
+		}
 		jobs = append(jobs, &job)
 	}
 	if err := iter.Close(); err != nil {

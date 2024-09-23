@@ -105,4 +105,3 @@ func (s *Server) Run() error {
 	logger.Info().Msgf("Starting HTTP server on port %s...", s.httpPort)
 	return gwServer.ListenAndServe()
 }
-

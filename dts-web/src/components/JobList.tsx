@@ -24,20 +24,22 @@ const JobList: React.FC = () => {
             <Table.Root>
                 <Table.Header>
                     <Table.Row>
+                        <Table.ColumnHeaderCell>Job ID</Table.ColumnHeaderCell>
                         <Table.ColumnHeaderCell>Job Name</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
                         <Table.ColumnHeaderCell>Priority</Table.ColumnHeaderCell>
                         <Table.ColumnHeaderCell>Created At</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell>Next Run</Table.ColumnHeaderCell>
                         <Table.ColumnHeaderCell>Actions</Table.ColumnHeaderCell>
                     </Table.Row>
                 </Table.Header>
                 <Table.Body>
                     {jobs.map(job => (
                         <Table.Row key={job.id}>
+                            <Table.Cell>{job.id}</Table.Cell>
                             <Table.Cell>{job.name}</Table.Cell>
-                            <Table.Cell>{job.status}</Table.Cell>
                             <Table.Cell>{job.priority}</Table.Cell>
                             <Table.Cell>{new Date(job.createdAt).toLocaleString()}</Table.Cell>
+                            <Table.Cell>{new Date(job.nextRun).toLocaleString()}</Table.Cell>
                             <Table.Cell>
                                 <Button asChild variant="soft">
                                     <Link to={`/job/${job.id}`}>View Details</Link>

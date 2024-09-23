@@ -10,6 +10,7 @@ import (
 type Config struct {
 	KafkaBrokers              []string
 	TaskTopic                 string
+	TaskRetryTopic            string
 	CassandraHosts            []string
 	CassandraKeyspace         string
 	SchedulerServicePort      string
@@ -28,6 +29,7 @@ func LoadConfig() (*Config, error) {
 	config := &Config{
 		KafkaBrokers:              getEnvAsSlice("KAFKA_BROKERS", []string{"localhost:9092"}),
 		TaskTopic:                 getEnv("KAFKA_TASK_TOPIC", "jobs"),
+		TaskRetryTopic:            getEnv("KAFKA_TASK_RETRY_TOPIC", "jobs-retry"),
 		CassandraHosts:            getEnvAsSlice("CASSANDRA_HOSTS", []string{"localhost"}),
 		CassandraKeyspace:         getEnv("CASSANDRA_KEYSPACE", "task_scheduler"),
 		SchedulerServicePort:      getEnv("SCHEDULER_SERVICE_PORT", "50052"),

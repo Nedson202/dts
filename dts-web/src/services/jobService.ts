@@ -37,6 +37,3 @@ export const deleteJob = async (jobId: string): Promise<void> => {
     await axios.delete(`${API_URL}/jobs/${jobId}`);
 };
 
-export const cancelJob = async (jobId: string): Promise<void> => {
-    await axios.post(`${API_URL}/jobs/${jobId}/cancel`);
-};

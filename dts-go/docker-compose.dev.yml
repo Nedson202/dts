@@ -121,7 +121,7 @@ services:
         go run -v ./cmd/connection_check/main.go cassandra 9042 &&
         echo 'Checking connection to Kafka...' &&
         go run -v ./cmd/connection_check/main.go kafka 29092 &&
-        go install github.com/air-verse/air@latest &&
+        go install github.com/air-verse/air@v1.52.3 &&
         air -c .air.job.toml
       "
     depends_on:
@@ -155,7 +155,7 @@ services:
         go run -v ./cmd/connection_check/main.go cassandra 9042 &&
         echo 'Checking connection to Kafka...' &&
         go run -v ./cmd/connection_check/main.go kafka 29092 &&
-        go install github.com/air-verse/air@latest &&
+        go install github.com/air-verse/air@v1.52.3 &&
         air -c .air.scheduler.toml
       "
     depends_on:
@@ -188,7 +188,7 @@ services:
         go run -v ./cmd/connection_check/main.go cassandra 9042 &&
         echo 'Checking connection to Kafka...' &&
         go run -v ./cmd/connection_check/main.go kafka 29092 &&
-        go install github.com/air-verse/air@latest &&
+        go install github.com/air-verse/air@v1.52.3 &&
         air -c .air.execution.toml
       "
     depends_on:

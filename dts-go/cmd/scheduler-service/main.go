@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -21,40 +20,45 @@ func main() {
 	// Load configuration
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		logger.Error().Err(err).Msg("Failed to load config")
+		os.Exit(1)
 	}
 
 	cassandraClient, err := database.NewCassandraClient(cfg.CassandraHosts, cfg.CassandraKeyspace)
 	if err != nil {
-		log.Fatalf("Failed to create Cassandra client: %v", err)
+		logger.Error().Err(err).Msg("Failed to create Cassandra client")
+		os.Exit(1)
 	}
 	defer cassandraClient.Close()
 
-	kafkaClient, err := queue.NewKafkaClient(cfg.KafkaBrokers, cfg.TaskTopic)
+	kafkaClient, err := queue.NewKafkaClient(cfg.KafkaBrokers, "scheduler-service", "")
 	if err != nil {
-		log.Fatalf("Failed to create Kafka client: %v", err)
+		logger.Error().Err(err).Msg("Failed to create Kafka client")
+		os.Exit(1)
 	}
 	defer kafkaClient.Close()
 
-	
 	checkInterval := 1 * time.Minute
 	server, err := scheduler.NewServer(cassandraClient, kafkaClient, checkInterval)
 	if err != nil {
-		log.Fatalf("Failed to create scheduler server: %v", err)
+		logger.Error().Err(err).Msg("Failed to create scheduler server")
+		os.Exit(1)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	go func() {
-		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-		<-sigCh
-		log.Println("Received shutdown signal")
-		cancel()
+		if err := server.Run(ctx); err != nil {
+			logger.Error().Err(err).Msg("Scheduler stopped unexpectedly")
+			cancel() // Cancel context to initiate shutdown
+		}
 	}()
 
-	if err := server.Run(ctx); err != nil {
-		log.Fatalf("Scheduler service error: %v", err)
-	}
+	// Graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	logger.Info().Msg("Shutdown signal received, cancelling context...")
+	cancel()
 }

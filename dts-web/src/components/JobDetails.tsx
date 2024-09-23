@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Heading, Text, Button, Flex, Card, Grid, Box } from '@radix-ui/themes';
-import { getJobDetails, deleteJob, updateJob, cancelJob } from '../services/jobService';
+import { getJobDetails, deleteJob, updateJob } from '../services/jobService';
 import { JobEditDialog } from './JobEditDialog';
 import ExecutionHistoryList from './ExecutionHistoryList';
 import { Job, JobEdit } from '../types';
@@ -59,18 +59,6 @@ const JobDetails: React.FC = () => {
         }
     };
 
-    const handleCancelJob = async () => {
-        if (job && job.id) {
-            try {
-                await cancelJob(job.id);
-                fetchJobDetails(); // Refresh job details after cancellation
-            } catch (error) {
-                console.error("Failed to cancel job:", error);
-                // Handle error (e.g., show error message to user)
-            }
-        }
-    };
-
     if (!job) {
         return <Text>Loading...</Text>;
     }
@@ -82,9 +70,6 @@ const JobDetails: React.FC = () => {
                 <Flex gap="2">
                     <Button onClick={handleEditJob}>Edit</Button>
                     <Button color="red" onClick={handleDelete}>Delete</Button>
-                    <Button color="yellow" onClick={handleCancelJob} disabled={job.status === 'COMPLETED' || job.status === 'FAILED' || job.status === 'CANCELLED'}>
-                        Cancel
-                    </Button>
                 </Flex>
             </Flex>
             <Grid columns="2" gap="4">
@@ -93,8 +78,6 @@ const JobDetails: React.FC = () => {
                     <Grid columns="2" gap="2">
                         <Text weight="bold">Description:</Text>
                         <Text>{job.description}</Text>
-                        <Text weight="bold">Status:</Text>
-                        <Text>{job.status}</Text>
                         <Text weight="bold">Cron Expression:</Text>
                         <Text>{job.cronExpression}</Text>
                         <Text weight="bold">Priority:</Text>

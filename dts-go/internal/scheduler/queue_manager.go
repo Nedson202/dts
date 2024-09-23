@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/nedson202/dts-go/pkg/config"
 	"github.com/nedson202/dts-go/pkg/logger"
 	"github.com/nedson202/dts-go/pkg/queue"
 )
@@ -20,38 +21,25 @@ func NewQueueManager(kafkaClient *queue.KafkaClient) *QueueManager {
 }
 
 func (qm *QueueManager) EnqueueJob(ctx context.Context, job *ScheduledJob) error {
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
 	jobJSON, err := json.Marshal(job)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to marshal job")
 		return fmt.Errorf("failed to marshal job: %v", err)
 	}
 
-	err = qm.kafkaClient.PublishMessage(ctx, []byte(job.JobID.String()), jobJSON)
+	err = qm.kafkaClient.Produce(ctx, cfg.TaskTopic, []byte(job.IdempotencyKey), jobJSON)
 	if err != nil {
 		logger.Error().Err(err).Msgf("Failed to publish job %s to Kafka", job.JobID)
 		return fmt.Errorf("failed to publish job to Kafka: %v", err)
 	}
 
-	logger.Info().Msgf("Job %s enqueued successfully", job.JobID)
+	logger.Info().Msgf("Job enqueued successfully %s", job.JobID)
 	return nil
-}
-
-func (qm *QueueManager) DequeueJob(ctx context.Context) (*ScheduledJob, error) {
-	msg, err := qm.kafkaClient.ConsumeMessage(ctx)
-	if err != nil {
-		logger.Error().Err(err).Msg("Failed to consume message from Kafka")
-		return nil, fmt.Errorf("failed to consume message from Kafka: %v", err)
-	}
-
-	var job ScheduledJob
-	err = json.Unmarshal(msg, &job)
-	if err != nil {
-		logger.Error().Err(err).Msg("Failed to unmarshal job")
-		return nil, fmt.Errorf("failed to unmarshal job: %v", err)
-	}
-
-	logger.Info().Msgf("Job %s dequeued successfully", job.JobID)
-	return &job, nil
 }
 
 func (qm *QueueManager) Close() error {
