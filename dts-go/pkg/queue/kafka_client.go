@@ -8,6 +8,7 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
+
 type KafkaClient struct {
 	client   *kgo.Client
 	messages chan []byte
@@ -44,7 +45,7 @@ func (kc *KafkaClient) Consume() error {
 	go func() {
 		defer kc.wg.Done()
 		for {
-			logger.Info().Msgf("Polling for messages...")
+			logger.Info().Msgf("Polling for messages on topic: %v", kc.client.GetConsumeTopics())
 			fetches := kc.client.PollFetches(kc.ctx)
 			if fetches.IsClientClosed() {
 				logger.Info().Msgf("Kafka client is closed")

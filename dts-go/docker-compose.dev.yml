@@ -139,15 +139,15 @@ services:
     working_dir: /app
     volumes:
       - ./:/app
-    ports:
-      - "${SCHEDULER_SERVICE_GRPC_PORT}:${SCHEDULER_SERVICE_GRPC_PORT}"
-      - "${SCHEDULER_SERVICE_HTTP_PORT}:${SCHEDULER_SERVICE_HTTP_PORT}"
+    # ports:
+      # - "${SCHEDULER_SERVICE_GRPC_PORT}:${SCHEDULER_SERVICE_GRPC_PORT}"
+      # - "${SCHEDULER_SERVICE_HTTP_PORT}:${SCHEDULER_SERVICE_HTTP_PORT}"
     environment:
       - KAFKA_BROKERS=kafka:29092
       - CASSANDRA_HOSTS=cassandra
       - CASSANDRA_KEYSPACE=${CASSANDRA_KEYSPACE}
-      - SCHEDULER_SERVICE_GRPC_PORT=${SCHEDULER_SERVICE_GRPC_PORT}
-      - SCHEDULER_SERVICE_HTTP_PORT=${SCHEDULER_SERVICE_HTTP_PORT}
+      # - SCHEDULER_SERVICE_GRPC_PORT=${SCHEDULER_SERVICE_GRPC_PORT}
+      # - SCHEDULER_SERVICE_HTTP_PORT=${SCHEDULER_SERVICE_HTTP_PORT}
       - JOB_SERVICE_ADDR=${JOB_SERVICE_ADDR}
     command: >
       sh -c "
@@ -167,6 +167,41 @@ services:
       - cassandra-network
       - kafka-network
       - services-network
+
+  scheduler-service-2:
+    image: golang:1.22
+    working_dir: /app
+    volumes:
+      - ./:/app
+    # ports:
+    #   - "${SCHEDULER_SERVICE_GRPC_PORT}:${SCHEDULER_SERVICE_GRPC_PORT}"
+    #   - "${SCHEDULER_SERVICE_HTTP_PORT}:${SCHEDULER_SERVICE_HTTP_PORT}"
+    environment:
+      - KAFKA_BROKERS=kafka:29092
+      - CASSANDRA_HOSTS=cassandra
+      - CASSANDRA_KEYSPACE=${CASSANDRA_KEYSPACE}
+      # - SCHEDULER_SERVICE_GRPC_PORT=${SCHEDULER_SERVICE_GRPC_PORT}
+      # - SCHEDULER_SERVICE_HTTP_PORT=${SCHEDULER_SERVICE_HTTP_PORT}
+      - JOB_SERVICE_ADDR=${JOB_SERVICE_ADDR}
+    command: >
+      sh -c "
+        echo 'Checking connection to Cassandra...' &&
+        go run -v ./cmd/connection_check/main.go cassandra 9042 &&
+        echo 'Checking connection to Kafka...' &&
+        go run -v ./cmd/connection_check/main.go kafka 29092 &&
+        go install github.com/air-verse/air@v1.52.3 &&
+        air -c .air.scheduler.toml
+      "
+    depends_on:
+      cassandra-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - cassandra-network
+      - kafka-network
+      - services-network
+
   execution-service:
     image: golang:1.22
     working_dir: /app

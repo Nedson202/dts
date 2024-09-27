@@ -24,11 +24,11 @@ type TaskRetryConsumerArgs struct {
 
 func NewTaskRetryConsumer(args TaskRetryConsumerArgs) (*TaskRetryConsumer, error) {
 	kafkaClient, err := queue.NewKafkaClient(args.Brokers, args.GroupID, args.Topic)
-	executor := NewTaskExecutor(args.CassandraClient, args.JobClient, kafkaClient)
 	if err != nil {
 		return nil, err
 	}
 
+	executor := NewTaskExecutor(args.CassandraClient, args.JobClient, kafkaClient)
 	return &TaskRetryConsumer{kafkaClient: kafkaClient, executor: executor}, nil
 }
 

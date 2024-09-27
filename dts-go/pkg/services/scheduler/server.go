@@ -30,8 +30,26 @@ func NewServer(cassandraClient *database.CassandraClient, kafkaClient *queue.Kaf
 	}, nil
 }
 
-func (s *Server) Run(ctx context.Context) error {
-	logger.Info().Msg("Starting scheduler service...")
+func (s *Server) Run(ctx context.Context, role string) error {
+	logger.Info().Msgf("Starting scheduler service as %s...", role)
+
+	// Start the scheduler
+	go s.scheduler.Start(ctx)
+
+	return nil
+}
+
+func (s *Server) RunAsCoordinator(ctx context.Context) error {
+	logger.Info().Msgf("Starting scheduler service as coordinator...")
+
+	// Start the scheduler
+	go s.scheduler.Start(ctx)
+
+	return nil
+}
+
+func (s *Server) RunAsWorker(ctx context.Context) error {
+	logger.Info().Msgf("Starting scheduler service as follower...")
 
 	// Start the scheduler
 	go s.scheduler.Start(ctx)
