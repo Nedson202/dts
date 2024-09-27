@@ -51,10 +51,6 @@ func (s *Server) DeleteJob(ctx context.Context, req *pb.DeleteJobRequest) (*pb.D
 	return s.service.DeleteJob(ctx, req)
 }
 
-func (s *Server) CancelJob(ctx context.Context, req *pb.CancelJobRequest) (*pb.CancelJobResponse, error) {
-	return s.service.CancelJob(ctx, req)
-}
-
 // Implement the HTTP service methods
 func (s *Server) Run() error {
 	// Create a listener for gRPC

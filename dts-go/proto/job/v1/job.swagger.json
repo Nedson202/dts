@@ -182,36 +182,6 @@
           "JobService"
         ]
       }
-    },
-    "/v1/jobs/{id}/cancel": {
-      "post": {
-        "operationId": "JobService_CancelJob",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/jobv1CancelJobResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "JobService"
-        ]
-      }
     }
   },
   "definitions": {
@@ -251,17 +221,6 @@
         "lastRun": {
           "type": "string",
           "format": "date-time"
-        }
-      }
-    },
-    "jobv1CancelJobResponse": {
-      "type": "object",
-      "properties": {
-        "success": {
-          "type": "boolean"
-        },
-        "message": {
-          "type": "string"
         }
       }
     },

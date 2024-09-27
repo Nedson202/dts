@@ -49,8 +49,8 @@ func NewScheduler(cassandraClient *database.CassandraClient, checkInterval time.
 	return scheduler, nil
 }
 
-func (s *Scheduler) Start(ctx context.Context) {
-	logger.Info().Msg("Starting Scheduler")
+func (s *Scheduler) Start(ctx context.Context, segments []string) {
+	logger.Info().Msgf("Starting Scheduler with segments: %v", segments)
 	ticker := time.NewTicker(s.checkInterval)
 	defer ticker.Stop()
 
@@ -61,68 +61,68 @@ func (s *Scheduler) Start(ctx context.Context) {
 			return
 		case <-ticker.C:
 			logger.Info().Msg("Running periodic job check")
-			s.ProcessPendingJobs(ctx)
+			s.ProcessPendingJobs(ctx, segments)
 		}
 	}
 }
 
-func (s *Scheduler) ProcessPendingJobs(ctx context.Context) error {
+func (s *Scheduler) ProcessPendingJobs(ctx context.Context, segments []string) error {
 	if s.jobClient == nil {
 		logger.Warn().Msg("Job client not yet connected. Skipping job processing.")
 		return nil
 	}
 
 	startTime := time.Now().Truncate(time.Minute)
-	logger.Info().Msg("Fetching pending jobs")
-	jobs, err := models.GetJobsDueForExecution(s.cassandraClient, 100) // Limit to 100 jobs per cycle
+	logger.Info().Msg("Fetching pending tasks")
+	tasks, err := models.GetScheduledTasksDueForExecution(s.cassandraClient, segments)
 	if err != nil {
-		logger.Error().Err(err).Msg("Error fetching pending jobs")
+		logger.Error().Err(err).Msg("Error fetching pending tasks")
 		return err
 	}
-	logger.Info().Msgf("Found %d pending jobs", len(jobs))
+	logger.Info().Msgf("Found %d pending tasks", len(tasks))
 
 	scheduledCount := 0
-	for _, job := range jobs {
-		logger.Info().Msgf("Processing job: %s", job.ID)
-		if err := s.scheduleJob(ctx, job); err != nil {
-			logger.Error().Err(err).Msgf("Error scheduling job %s", job.ID)
+	for _, task := range tasks {
+		logger.Info().Msgf("Processing task: %s", task.JobID)
+		if err := s.scheduleTask(ctx, task); err != nil {
+			logger.Error().Err(err).Msgf("Error scheduling task %s", task.JobID)
 		} else {
 			scheduledCount++
 		}
 	}
 
 	duration := time.Since(startTime)
-	logger.Info().Msgf("Periodic job check completed. Scheduled %d out of %d jobs. Duration: %v", scheduledCount, len(jobs), duration)
+	logger.Info().Msgf("Periodic task check completed. Scheduled %d out of %d tasks. Duration: %v", scheduledCount, len(tasks), duration)
 	return nil
 }
 
-func (s *Scheduler) scheduleJob(ctx context.Context, job *models.Job) error {
+func (s *Scheduler) scheduleTask(ctx context.Context, task *models.TaskSchedule) error {
 	// Update the job status to SCHEDULED
-	_, err := s.jobClient.UpdateJob(ctx, job.ID.String(), jobpb.JobStatus_SCHEDULED, time.Time{})
+	_, err := s.jobClient.UpdateJob(ctx, task.JobID.String(), jobpb.JobStatus_SCHEDULED, time.Time{})
 	if err != nil {
-		logger.Error().Err(err).Msgf("Error updating job %s to SCHEDULED", job.ID)
+		logger.Error().Err(err).Msgf("Error updating job %s to SCHEDULED", task.JobID)
 		return err
 	}
 
 	idempotencyKey, err := uuid.NewV4()
 	if err != nil {
-		logger.Error().Err(err).Msgf("Error generating unique ID for job %s", job.ID)
+		logger.Error().Err(err).Msgf("Error generating unique ID for job %s", task.JobID)
 		return err
 	}
 
 	// Use QueueManager to enqueue the job
 	scheduledJob := &ScheduledJob{
 		IdempotencyKey: idempotencyKey.String(),
-		JobID:          uuid.FromStringOrNil(job.ID.String()),
+		JobID:          task.JobID.String(),
 		StartTime:      time.Now(),
 	}
 	err = s.queueManager.EnqueueJob(ctx, scheduledJob)
 	if err != nil {
-		logger.Error().Err(err).Msgf("Error enqueueing job %s", job.ID)
+		logger.Error().Err(err).Msgf("Error enqueueing job %s", task.JobID)
 		// Revert the job status to PENDING if enqueueing fails
-		revertErr := s.revertJobStatus(ctx, job.ID.String(), jobpb.JobStatus_PENDING)
+		revertErr := s.revertJobStatus(ctx, task.JobID.String(), jobpb.JobStatus_PENDING)
 		if revertErr != nil {
-			logger.Error().Err(revertErr).Msgf("Failed to revert job %s status to PENDING", job.ID)
+			logger.Error().Err(revertErr).Msgf("Failed to revert job %s status to PENDING", task.JobID)
 		}
 		return err
 	}
@@ -137,6 +137,6 @@ func (s *Scheduler) revertJobStatus(ctx context.Context, jobID string, status jo
 
 type ScheduledJob struct {
 	IdempotencyKey string
-	JobID          uuid.UUID
-	StartTime time.Time
+	JobID          string
+	StartTime      time.Time
 }

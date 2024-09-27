@@ -118,7 +118,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/schedulerv1CancelJobResponse"
+              "$ref": "#/definitions/v1CancelJobResponse"
             }
           },
           "default": {
@@ -171,7 +171,7 @@
         }
       }
     },
-    "schedulerv1CancelJobResponse": {
+    "v1CancelJobResponse": {
       "type": "object",
       "properties": {
         "success": {

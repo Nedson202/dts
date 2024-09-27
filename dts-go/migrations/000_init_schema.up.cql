@@ -1,8 +1,6 @@
 CREATE KEYSPACE IF NOT EXISTS task_scheduler
 WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
 
-USE task_scheduler;
-
 -- Create the jobs table
 CREATE TABLE IF NOT EXISTS jobs (
   id UUID PRIMARY KEY,
@@ -17,18 +15,12 @@ CREATE TABLE IF NOT EXISTS jobs (
   metadata MAP<TEXT, TEXT>
 );
 
--- Create the scheduled_jobs table
-CREATE TABLE IF NOT EXISTS scheduled_jobs (
-  id UUID PRIMARY KEY,
-  job_id UUID,
-  start_time TIMESTAMP,
-  cpu INT,
-  memory INT,
-  storage INT
-);
-
--- Create an index on start_time for efficient querying
-CREATE INDEX IF NOT EXISTS scheduled_jobs_start_time_idx ON scheduled_jobs (start_time);
+CREATE TABLE IF NOT EXISTS task_schedule (
+    next_execution_time timestamp,
+    segment text,
+    job_id uuid,
+    PRIMARY KEY ((segment, next_execution_time), job_id)
+) WITH CLUSTERING ORDER BY (job_id ASC);
 
 -- Create the job_executions table
 CREATE TABLE IF NOT EXISTS job_executions (

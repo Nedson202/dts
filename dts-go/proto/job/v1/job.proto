@@ -36,11 +36,6 @@ service JobService {
       delete: "/v1/jobs/{id}"
     };
   }
-  rpc CancelJob(CancelJobRequest) returns (CancelJobResponse) {
-    option (google.api.http) = {
-      post: "/v1/jobs/{id}/cancel"
-    };
-  }
 }
 
 enum JobStatus {
@@ -136,13 +131,4 @@ message DeleteJobResponse {
 
 message CreateJobResponse {
   string job_id = 1;
-}
-
-message CancelJobRequest {
-  string id = 1;
-}
-
-message CancelJobResponse {
-  bool success = 1;
-  string message = 2;
 }

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/nedson202/dts-go/internal/scheduler"
+	"github.com/nedson202/dts-go/pkg/config"
 	"github.com/nedson202/dts-go/pkg/database"
 	"github.com/nedson202/dts-go/pkg/logger"
 	"github.com/nedson202/dts-go/pkg/queue"
@@ -34,25 +35,41 @@ func (s *Server) Run(ctx context.Context, role string) error {
 	logger.Info().Msgf("Starting scheduler service as %s...", role)
 
 	// Start the scheduler
-	go s.scheduler.Start(ctx)
+	go s.scheduler.Start(ctx, []string{})
 
 	return nil
 }
 
 func (s *Server) RunAsCoordinator(ctx context.Context) error {
+	config, err := config.LoadConfig()
+	if err != nil {
+		return err
+	}
+
 	logger.Info().Msgf("Starting scheduler service as coordinator...")
 
+	segments := config.Segments
+	// split segments into 2
+	coordinatorSegments := segments[:len(segments)/2]
+
 	// Start the scheduler
-	go s.scheduler.Start(ctx)
+	go s.scheduler.Start(ctx, coordinatorSegments)
 
 	return nil
 }
 
 func (s *Server) RunAsWorker(ctx context.Context) error {
+	config, err := config.LoadConfig()
+	if err != nil {
+		return err
+	}
+
 	logger.Info().Msgf("Starting scheduler service as follower...")
 
+	segments := config.Segments
+	followerSegments := segments[len(segments)/2:]
 	// Start the scheduler
-	go s.scheduler.Start(ctx)
+	go s.scheduler.Start(ctx, followerSegments)
 
 	return nil
 }

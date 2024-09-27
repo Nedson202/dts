@@ -2,7 +2,7 @@ package job
 
 import (
 	"context"
-	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/gocql/gocql"
@@ -18,11 +18,13 @@ import (
 type Service struct {
 	pb.UnimplementedJobServiceServer
 	cassandraClient *database.CassandraClient
+	segments        []string
 }
 
-func NewService(cassandraClient *database.CassandraClient) *Service {
+func NewService(cassandraClient *database.CassandraClient, segments []string) *Service {
 	return &Service{
 		cassandraClient: cassandraClient,
+		segments:        segments,
 	}
 }
 
@@ -47,9 +49,39 @@ func (s *Service) CreateJob(ctx context.Context, req *pb.CreateJobRequest) (*pb.
 		job.Status = pb.JobStatus_PENDING.String()
 	}
 
-	err := models.CreateJob(s.cassandraClient, job)
+	nextRun, err := utils.CalculateNextRun(job.CronExpression, time.Now())
 	if err != nil {
-		logger.Error().Err(err).Msg("Error inserting job into Cassandra")
+		logger.Error().Err(err).Msgf("Error calculating next run time for job %s", job.ID)
+		return nil, status.Errorf(codes.Internal, "Failed to calculate next run time")
+	}
+	job.NextRun = nextRun
+
+	// Create a task schedule
+	randomSegment := s.segments[rand.Intn(len(s.segments))]
+	taskSchedule := &models.TaskSchedule{
+		NextExecutionTime: job.NextRun,
+		Segment:           randomSegment,
+		JobID:             job.ID,
+	}
+
+	// Start a batch operation
+	batch := s.cassandraClient.Session.NewBatch(gocql.LoggedBatch)
+
+	// Add job creation query to batch
+	batch.Query(
+		models.JobCreationQuery,
+		job.ID, job.Name, job.Description, job.CronExpression, job.Status, job.CreatedAt, job.UpdatedAt, job.LastRun, job.NextRun, job.Metadata,
+	)
+
+	// Add task schedule creation query to batch
+	batch.Query(
+		models.TaskScheduleCreationQuery,
+		taskSchedule.NextExecutionTime, taskSchedule.Segment, taskSchedule.JobID,
+	)
+
+	// Execute the batch
+	if err := s.cassandraClient.Session.ExecuteBatch(batch); err != nil {
+		logger.Error().Err(err).Msg("Error inserting job and task schedule into Cassandra")
 		return nil, status.Errorf(codes.Internal, "Failed to create job")
 	}
 
@@ -151,16 +183,51 @@ func (s *Service) UpdateJob(ctx context.Context, req *pb.UpdateJobRequest) (*pb.
 		existingJob.Metadata = req.Metadata
 	}
 
-	if req.LastRun != nil {
-		lastRunTime := req.LastRun.AsTime()
-		existingJob.LastRun = &lastRunTime
-	}
-
 	existingJob.UpdatedAt = time.Now()
 
-	err = models.UpdateJob(s.cassandraClient, existingJob)
+	// Calculate new next run time
+	nextRun, err := utils.CalculateNextRun(existingJob.CronExpression, time.Now())
 	if err != nil {
-		logger.Error().Err(err).Msg("Error updating job in Cassandra")
+		logger.Error().Err(err).Msgf("Error calculating next run time for job %s", existingJob.ID)
+		return nil, status.Errorf(codes.Internal, "Failed to calculate next run time")
+	}
+	existingJob.NextRun = nextRun
+
+	// Create a new task schedule
+	existingTaskSchedule, err := models.GetTaskScheduleByJobID(s.cassandraClient, existingJob.ID)
+	if err != nil {
+		logger.Error().Err(err).Msg("Error retrieving task schedule from Cassandra")
+		return nil, status.Errorf(codes.Internal, "Failed to retrieve task schedule")
+	}
+	randomSegment := s.segments[rand.Intn(len(s.segments))]
+	newTaskSchedule := &models.TaskSchedule{
+		NextExecutionTime: existingJob.NextRun,
+		Segment:           randomSegment,
+		JobID:             existingJob.ID,
+	}
+
+	// Start a batch operation
+	batch := s.cassandraClient.Session.NewBatch(gocql.LoggedBatch)
+
+	// Add job update query to batch
+	batch.Query(
+		models.JobUpdateQuery,
+		existingJob.Name, existingJob.Description, existingJob.CronExpression, existingJob.Status,
+		existingJob.UpdatedAt, existingJob.LastRun, existingJob.NextRun, existingJob.Metadata, existingJob.ID,
+	)
+
+	// Delete old task schedule
+	batch.Query(models.TaskScheduleDeleteQuery, existingJob.ID, existingTaskSchedule.NextExecutionTime, existingTaskSchedule.Segment)
+
+	// Add new task schedule creation query to batch
+	batch.Query(
+		models.TaskScheduleCreationQuery,
+		newTaskSchedule.NextExecutionTime, newTaskSchedule.Segment, newTaskSchedule.JobID,
+	)
+
+	// Execute the batch
+	if err := s.cassandraClient.Session.ExecuteBatch(batch); err != nil {
+		logger.Error().Err(err).Msg("Error updating job and task schedule in Cassandra")
 		return nil, status.Errorf(codes.Internal, "Failed to update job")
 	}
 
@@ -180,38 +247,4 @@ func (s *Service) DeleteJob(ctx context.Context, req *pb.DeleteJobRequest) (*pb.
 	}
 
 	return &pb.DeleteJobResponse{Success: true}, nil
-}
-
-func (s *Service) CancelJob(ctx context.Context, req *pb.CancelJobRequest) (*pb.CancelJobResponse, error) {
-	id, err := gocql.ParseUUID(req.Id)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "Invalid job ID")
-	}
-
-	job, err := models.GetJob(s.cassandraClient, id)
-	if err != nil {
-		if err == gocql.ErrNotFound {
-			return nil, status.Errorf(codes.NotFound, "Job not found")
-		}
-		logger.Error().Err(err).Msg("Error retrieving job from Cassandra")
-		return nil, status.Errorf(codes.Internal, "Failed to retrieve job")
-	}
-
-	if job.Status == pb.JobStatus_COMPLETED.String() || job.Status == pb.JobStatus_FAILED.String() || job.Status == pb.JobStatus_CANCELLED.String() {
-		return nil, status.Errorf(codes.FailedPrecondition, "Cannot cancel job with status: %s", job.Status)
-	}
-
-	job.Status = pb.JobStatus_CANCELLED.String()
-	job.UpdatedAt = time.Now()
-
-	err = models.UpdateJob(s.cassandraClient, job)
-	if err != nil {
-		logger.Error().Err(err).Msg("Error updating job in Cassandra")
-		return nil, status.Errorf(codes.Internal, "Failed to cancel job")
-	}
-
-	return &pb.CancelJobResponse{
-		Success: true,
-		Message: fmt.Sprintf("Job %s has been cancelled", job.ID),
-	}, nil
 }

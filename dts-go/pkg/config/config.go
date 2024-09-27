@@ -23,6 +23,7 @@ type Config struct {
 	SchedulerServiceHTTPPort  string
 	CassandraDataRetentionDays int
 	JobServiceAddr            string
+	Segments                  []string
 }
 
 func LoadConfig() (*Config, error) {
@@ -42,6 +43,7 @@ func LoadConfig() (*Config, error) {
 		SchedulerServiceHTTPPort:  getEnv("SCHEDULER_SERVICE_HTTP_PORT", "8081"),
 		CassandraDataRetentionDays: getEnvAsInt("CASSANDRA_DATA_RETENTION_DAYS", 30),
 		JobServiceAddr:            getEnv("JOB_SERVICE_ADDR", "localhost:50054"),
+		Segments:                  getEnvAsSlice("SEGMENTS", []string{"1", "2", "3", "4", "5", "6"}),
 	}
 
 	return config, nil

@@ -158,24 +158,6 @@ func DeleteJob(cassandraClient *database.CassandraClient, id gocql.UUID) error {
 	return cassandraClient.Session.Query("DELETE FROM jobs WHERE id = ?", id).Exec()
 }
 
-func GetJobsDueForExecution(client *database.CassandraClient, limit int) ([]*Job, error) {
-	now := time.Now().Truncate(time.Minute)
-	query := "SELECT id, name, description, cron_expression, status_text, created_at, updated_at, last_run, next_run, metadata FROM jobs WHERE next_run <= ? LIMIT ? ALLOW FILTERING"
-	iter := client.Session.Query(query, now, limit).Iter()
-	var jobs []*Job
-	for {
-		var job Job
-		if !iter.Scan(&job.ID, &job.Name, &job.Description, &job.CronExpression, &job.Status, &job.CreatedAt, &job.UpdatedAt, &job.LastRun, &job.NextRun, &job.Metadata) {
-			break
-		}
-		jobs = append(jobs, &job)
-	}
-	if err := iter.Close(); err != nil {
-		return nil, err
-	}
-	return jobs, nil
-}
-
 func UpdateJobLastRun(client *database.CassandraClient, jobID gocql.UUID, lastRun time.Time) error {
 	query := "UPDATE jobs SET last_run = ? WHERE id = ?"
 	return client.Session.Query(query, lastRun, jobID).Exec()

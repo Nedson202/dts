@@ -34,7 +34,7 @@ func main() {
 	logger.Info().Msgf("Kafka Brokers: %v", cfg.KafkaBrokers)
 
 	// Create job service
-	jobService := job.NewService(cassandraClient)
+	jobService := job.NewService(cassandraClient, cfg.Segments)
 
 	// Use separate ports for gRPC and HTTP
 	grpcPort := cfg.JobServiceGRPCPort
